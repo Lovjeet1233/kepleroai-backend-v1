@@ -36,3 +36,8 @@ coverage/
 *.tgz
 .cache
 
+# Environment files
+.env
+.env.*
+.env.bak*
+env.example
