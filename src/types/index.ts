@@ -2,7 +2,6 @@ import { Document } from 'mongoose';
 
 // Customer Types
 export interface ICustomer extends Document {
-  _id: string;
   userId: string;
   name?: string;
   email?: string;
@@ -15,7 +14,6 @@ export interface ICustomer extends Document {
 
 // Conversation Types
 export interface IConversation extends Document {
-  _id: string;
   userId: string;
   customerId: string;
   channel: 'web' | 'whatsapp' | 'telegram' | 'api';
@@ -30,7 +28,6 @@ export interface IConversation extends Document {
 
 // Message Types
 export interface IMessage extends Document {
-  _id: string;
   conversationId: string;
   senderId: string;
   senderType: 'customer' | 'agent' | 'bot';
