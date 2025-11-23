@@ -1,12 +1,20 @@
+import mongoose from 'mongoose';
 import Conversation from '../models/Conversation';
 import Message from '../models/Message';
 import Customer from '../models/Customer';
 import { AppError } from '../middleware/error.middleware';
+import socialIntegrationService from './socialIntegration.service';
+import { trackUsage } from '../middleware/profileTracking.middleware';
 
 export class ConversationService {
   // Get all conversations with filters and pagination
   async findAll(filters: any = {}, page = 1, limit = 20) {
     const query: any = {};
+
+    // Only add organizationId filter if provided (for multi-tenant support)
+    if (filters.organizationId) {
+      query.organizationId = filters.organizationId;
+    }
 
     if (filters.status) query.status = filters.status;
     if (filters.channel) query.channel = filters.channel;
@@ -51,6 +59,13 @@ export class ConversationService {
         })
           .sort({ timestamp: -1 })
           .lean();
+
+        // Ensure customer has a name - use email or phone as fallback
+        if (conv.customerId) {
+          if (!conv.customerId.name || conv.customerId.name === '') {
+            conv.customerId.name = conv.customerId.email || conv.customerId.phone || 'Unknown Customer';
+          }
+        }
 
         return {
           ...conv,
@@ -145,6 +160,99 @@ export class ConversationService {
       conversation.unread = true;
     }
     await conversation.save();
+
+    return message;
+  }
+
+  // Send reply to customer (via appropriate channel)
+  async sendReply(conversationId: string, messageText: string, operatorId?: string) {
+    const conversation = await Conversation.findById(conversationId)
+      .populate('customerId')
+      .lean();
+
+    if (!conversation) {
+      throw new AppError(404, 'NOT_FOUND', 'Conversation not found');
+    }
+
+    const customer = conversation.customerId as any;
+    const channel = conversation.channel;
+    const metadata = conversation.metadata || {};
+
+    // Create message in database
+    const message = await Message.create({
+      conversationId,
+      sender: operatorId ? 'operator' : 'ai',
+      text: messageText,
+      type: 'message',
+      timestamp: new Date(),
+      operatorId: operatorId || undefined
+    });
+
+    // Send via appropriate channel
+    try {
+      if (channel === 'whatsapp') {
+        const dialog360 = await socialIntegrationService.getDialog360Service(
+          conversation.organizationId.toString(),
+          'whatsapp'
+        );
+        await dialog360.sendWhatsAppMessage({
+          to: customer.phone,
+          type: 'text',
+          text: messageText
+        });
+      } else if (channel === 'social' && metadata.platform === 'instagram') {
+        const dialog360 = await socialIntegrationService.getDialog360Service(
+          conversation.organizationId.toString(),
+          'instagram'
+        );
+        const instagramId = customer.metadata?.instagramId;
+        if (!instagramId) {
+          throw new AppError(400, 'INVALID_CUSTOMER', 'Instagram ID not found for customer');
+        }
+        await dialog360.sendInstagramMessage({
+          to: instagramId,
+          type: 'text',
+          text: messageText
+        });
+      } else if (channel === 'social' && metadata.platform === 'facebook') {
+        const dialog360 = await socialIntegrationService.getDialog360Service(
+          conversation.organizationId.toString(),
+          'facebook'
+        );
+        const facebookId = customer.metadata?.facebookId;
+        if (!facebookId) {
+          throw new AppError(400, 'INVALID_CUSTOMER', 'Facebook ID not found for customer');
+        }
+        await dialog360.sendFacebookMessage({
+          to: facebookId,
+          type: 'text',
+          text: messageText
+        });
+      } else if (channel === 'website') {
+        // Website messages are handled via Socket.io (existing implementation)
+        // No external API call needed
+      } else if (channel === 'email') {
+        // Email handling would go here
+        // TODO: Implement email sending
+      } else if (channel === 'phone') {
+        // Phone/Voice handling would go here
+        // TODO: Implement voice response
+      }
+    } catch (error: any) {
+      console.error(`Error sending message via ${channel}:`, error);
+      // Mark message as failed but don't throw - message is saved in DB
+      await Message.findByIdAndUpdate(message._id, {
+        $set: {
+          'metadata.sendError': error.message
+        }
+      });
+    }
+
+    // Update conversation
+    await Conversation.findByIdAndUpdate(conversationId, {
+      updatedAt: new Date(),
+      unread: false
+    });
 
     return message;
   }
@@ -336,20 +444,34 @@ export class ConversationService {
     threadId: string;
     collection?: string;
     messages: Array<{ role: string; content: string; timestamp: Date }>;
+    organizationId?: string;
   }) {
     try {
       console.log('[Widget Conversation] Saving conversation for:', data.name);
       
-      // Find or create customer by name
+      // Find or create customer by name (with organizationId if provided)
       let customer = await Customer.findOne({ name: data.name });
       
       if (!customer) {
         console.log('[Widget Conversation] Creating new customer:', data.name);
-        customer = await Customer.create({
+        const customerData: any = {
           name: data.name,
           source: 'widget'
-          // status will use default from schema
-        });
+        };
+        
+        // Add organizationId if provided
+        if (data.organizationId) {
+          customerData.organizationId = data.organizationId;
+        }
+        
+        customer = await Customer.create(customerData);
+      } else {
+        // Update customer if name was empty/missing
+        if (!customer.name || customer.name === '') {
+          customer.name = data.name;
+          await customer.save();
+          console.log('[Widget Conversation] Updated customer name:', data.name);
+        }
       }
 
       // Find existing conversation by threadId using dot notation
@@ -359,7 +481,7 @@ export class ConversationService {
 
       if (!conversation) {
         console.log('[Widget Conversation] Creating new conversation for thread:', data.threadId);
-        conversation = await Conversation.create({
+        const conversationData: any = {
           customerId: customer._id,
           channel: 'website',
           status: 'unread', // Valid status: 'open', 'unread', 'support_request', 'closed'
@@ -368,7 +490,34 @@ export class ConversationService {
             threadId: data.threadId,
             collection: data.collection
           }
-        });
+        };
+        
+        // Add organizationId if provided, otherwise use a default
+        if (data.organizationId) {
+          conversationData.organizationId = data.organizationId;
+        } else if (customer.organizationId) {
+          conversationData.organizationId = customer.organizationId;
+        } else {
+          // Get first organization as fallback for widget conversations
+          const Organization = mongoose.model('Organization');
+          const defaultOrg = await Organization.findOne();
+          if (defaultOrg) {
+            conversationData.organizationId = defaultOrg._id;
+          }
+        }
+        
+        conversation = await Conversation.create(conversationData);
+
+        // Track chat conversation usage
+        // Get the user (owner) of this organization to track usage
+        if (conversationData.organizationId) {
+          const User = mongoose.model('User');
+          const orgOwner = await User.findOne({ organizationId: conversationData.organizationId, role: 'admin' });
+          if (orgOwner) {
+            await trackUsage(String(orgOwner._id), 'chat', 1);
+            console.log(`[Widget Conversation] Tracked 1 chat conversation for user ${orgOwner._id}`);
+          }
+        }
       }
 
       // Add messages

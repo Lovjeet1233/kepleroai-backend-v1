@@ -89,6 +89,10 @@ export class ContactController {
 
   importCSV = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
+      console.log('[CSV Import Controller] Request received');
+      console.log('[CSV Import Controller] Params:', req.params);
+      console.log('[CSV Import Controller] File:', req.file ? `${req.file.originalname} (${req.file.size} bytes)` : 'NO FILE');
+      
       if (!req.file) {
         throw new AppError(400, 'VALIDATION_ERROR', 'No file uploaded');
       }
@@ -96,15 +100,23 @@ export class ContactController {
       const { listId } = req.params;
       const { defaultCountryCode = '+1' } = req.body;
 
+      console.log('[CSV Import Controller] List ID:', listId);
+      console.log('[CSV Import Controller] Country Code:', defaultCountryCode);
+
       const csvContent = req.file.buffer.toString('utf-8');
+      console.log('[CSV Import Controller] CSV Content length:', csvContent.length);
+      console.log('[CSV Import Controller] First 200 chars:', csvContent.substring(0, 200));
+      
       const result = await this.contactService.importFromCSV(
         listId,
         csvContent,
         defaultCountryCode
       );
 
+      console.log('[CSV Import Controller] Import result:', result);
       res.json(successResponse(result, 'Contacts imported'));
     } catch (error) {
+      console.error('[CSV Import Controller] Error:', error);
       next(error);
     }
   };

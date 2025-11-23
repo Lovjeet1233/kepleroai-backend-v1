@@ -1,0 +1,130 @@
+import Settings from '../models/Settings';
+import User from '../models/User';
+import { AppError } from '../middleware/error.middleware';
+
+export class SettingsService {
+  /**
+   * Get widget settings by widgetId (public access)
+   * For now, get the first settings or default. In production, map widgetId to organization
+   */
+  async getWidgetSettings(widgetId: string) {
+    // Try to find settings. For now, just get the first one
+    // In production, you'd map widgetId to specific organization/user
+    let settings = await Settings.findOne();
+    
+    if (!settings) {
+      // Return default settings if none exist
+      return {
+        chatbotName: 'AI Assistant',
+        chatbotAvatar: null,
+        primaryColor: '#6366f1',
+        autoReplyMessage: 'Hello! How can I help you today?'
+      };
+    }
+    
+    return settings;
+  }
+
+  /**
+   * Get settings for a user (create default if doesn't exist)
+   */
+  async getSettings(userId: string) {
+    let settings = await Settings.findOne({ userId });
+    
+    if (!settings) {
+      // Create default settings
+      settings = await Settings.create({
+        userId,
+        chatbotName: 'AI Assistant',
+        primaryColor: '#6366f1',
+        widgetPosition: 'right',
+        language: 'en',
+        emailNotifications: true,
+        soundNotifications: true
+      });
+    }
+    
+    return settings;
+  }
+
+  /**
+   * Update settings
+   */
+  async updateSettings(userId: string, data: any) {
+    let settings = await Settings.findOne({ userId });
+    
+    if (!settings) {
+      // Create if doesn't exist
+      settings = await Settings.create({
+        userId,
+        ...data
+      });
+    } else {
+      // Update existing
+      Object.assign(settings, data);
+      await settings.save();
+    }
+    
+    return settings;
+  }
+
+  /**
+   * Get all operators (users)
+   */
+  async getOperators() {
+    const users = await User.find({}, '-password')
+      .lean();
+    return users;
+  }
+
+  /**
+   * Create operator
+   */
+  async createOperator(data: any) {
+    const existingUser = await User.findOne({ email: data.email });
+    if (existingUser) {
+      throw new AppError(409, 'DUPLICATE', 'User with this email already exists');
+    }
+
+    const user = await User.create({
+      email: data.email,
+      password: data.password, // Store plain password as requested
+      name: data.name,
+      role: data.role || 'operator',
+      firstName: data.name?.split(' ')[0],
+      lastName: data.name?.split(' ')[1]
+    });
+
+    return user;
+  }
+
+  /**
+   * Update operator
+   */
+  async updateOperator(id: string, data: any) {
+    const user = await User.findById(id);
+    if (!user) {
+      throw new AppError(404, 'NOT_FOUND', 'User not found');
+    }
+
+    Object.assign(user, data);
+    await user.save();
+
+    return user;
+  }
+
+  /**
+   * Delete operator
+   */
+  async deleteOperator(id: string) {
+    const user = await User.findByIdAndDelete(id);
+    if (!user) {
+      throw new AppError(404, 'NOT_FOUND', 'User not found');
+    }
+
+    return { message: 'User deleted successfully' };
+  }
+}
+
+export const settingsService = new SettingsService();
+

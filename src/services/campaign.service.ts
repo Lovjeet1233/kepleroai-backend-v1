@@ -10,6 +10,8 @@ import { campaignQueue } from '../queues/campaign.queue';
 import { phoneSettingsService } from './phoneSettings.service';
 import { aiBehaviorService } from './aiBehavior.service';
 import axios from 'axios';
+import { trackUsage } from '../middleware/profileTracking.middleware';
+import { profileService } from './profile.service';
 
 // Voice ID mapping for ElevenLabs
 const VOICE_ID_MAP: Record<string, string> = {
@@ -23,6 +25,25 @@ const VOICE_ID_MAP: Record<string, string> = {
   'josh': 'TxGEqnHWrfWFTfGW9XjX',
   'liam': 'TX3LPaxmHKxFdv7VOQHJ',
   'domi': 'AZnzlk1XvdvUeBnXmlld',
+};
+
+/**
+ * Normalize phone number to E.164 format
+ * Ensures phone number starts with + prefix
+ */
+const normalizePhoneNumber = (phone: string): string => {
+  if (!phone) return phone;
+  
+  // Remove any whitespace
+  phone = phone.trim();
+  
+  // If already has +, return as is
+  if (phone.startsWith('+')) {
+    return phone;
+  }
+  
+  // Add + prefix
+  return '+' + phone;
 };
 
 export class CampaignService {
@@ -288,14 +309,34 @@ export class CampaignService {
             try {
               console.log(`[Campaign ${campaignId}] Initiating call to ${contact.phone}...`);
               
+              // Get API keys for LLM
+              let provider = 'openai';
+              let apiKey = '';
+              let apiKeysConfigured = false;
+              try {
+                const { apiKeysService } = await import('./apiKeys.service');
+                const apiKeys = await apiKeysService.getApiKeys(userId);
+                provider = apiKeys.llmProvider;
+                apiKey = apiKeys.apiKey;
+                apiKeysConfigured = true;
+              } catch (error: any) {
+                console.warn(`[Campaign ${campaignId}] Failed to fetch API keys:`, error.message);
+                console.warn(`[Campaign ${campaignId}] ⚠️  API keys not configured. Calls may fail. Please configure API keys in Settings → API Keys`);
+              }
+              
+              // Normalize phone number to E.164 format
+              const normalizedPhone = normalizePhoneNumber(contact.phone);
+              
               // Prepare outbound call request body
               const callRequestBody: any = {
-                phone_number: contact.phone,
+                phone_number: normalizedPhone,
                 name: contact.name || 'Customer',
                 dynamic_instruction: campaign.dynamicInstruction || '',
                 language: campaign.language || 'en',
                 voice_id: voiceId,
                 sip_trunk_id: phoneSettings.livekitSipTrunkId,
+                provider: provider,
+                api_key: apiKey
               };
 
               // Add optional fields if they exist
@@ -306,6 +347,24 @@ export class CampaignService {
                 callRequestBody.escalation_condition = escalationCondition;
               }
 
+              // Log request details for debugging
+              console.log(`[Campaign ${campaignId}] Call Request Body:`, {
+                phone_number: callRequestBody.phone_number,
+                name: callRequestBody.name,
+                voice_id: callRequestBody.voice_id,
+                sip_trunk_id: callRequestBody.sip_trunk_id,
+                provider: callRequestBody.provider,
+                api_key: callRequestBody.api_key ? '***configured***' : '❌ EMPTY',
+                language: callRequestBody.language,
+                has_transfer_to: !!callRequestBody.transfer_to,
+                has_escalation_condition: !!callRequestBody.escalation_condition
+              });
+
+              if (!apiKeysConfigured || !callRequestBody.api_key) {
+                console.error(`[Campaign ${campaignId}] ❌ CRITICAL: API Key is missing! Call will likely fail.`);
+                console.error(`[Campaign ${campaignId}] Please configure your API keys at Settings → API Keys`);
+              }
+
               const callResponse = await axios.post(`${COMM_API}/calls/outbound`, callRequestBody, {
                 timeout: 360000, // 6 minutes timeout (call waits max 5 minutes for transcript)
               });
@@ -314,6 +373,13 @@ export class CampaignService {
               contactResult.transcript = callResponse.data.transcript || null;
 
               console.log(`[Campaign ${campaignId}] Call to ${contact.phone} completed with status: ${contactResult.call_status}`);
+
+              // Track voice usage if call was successful
+              if (contactResult.call_status === 'success' && callResponse.data.duration) {
+                const durationMinutes = Math.ceil(callResponse.data.duration / 60); // Convert seconds to minutes, round up
+                await trackUsage(userId, 'voice', durationMinutes);
+                console.log(`[Campaign ${campaignId}] Tracked ${durationMinutes} voice minutes for user ${userId}`);
+              }
 
               // Save transcript as conversation if available
               if (contactResult.transcript && Object.keys(contactResult.transcript).length > 0) {
@@ -381,10 +447,13 @@ export class CampaignService {
             contactResult.errors.push('SMS message not configured');
           } else {
             try {
-              console.log(`[Campaign ${campaignId}] Sending SMS to ${contact.phone}...`);
+              // Normalize phone number to E.164 format
+              const normalizedPhone = normalizePhoneNumber(contact.phone);
+              
+              console.log(`[Campaign ${campaignId}] Sending SMS to ${normalizedPhone}...`);
               const smsResponse = await axios.post(`${COMM_API}/sms/send`, {
                 body: campaign.smsBody.message,
-                number: contact.phone,
+                number: normalizedPhone,
               }, {
                 timeout: 30000, // 30 seconds timeout
               });

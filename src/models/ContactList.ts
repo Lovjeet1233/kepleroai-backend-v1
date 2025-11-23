@@ -8,6 +8,7 @@ export interface IKanbanStatus {
 
 export interface IContactList extends Document {
   name: string;
+  organizationId?: mongoose.Types.ObjectId;
   isSystem: boolean;
   kanbanEnabled: boolean;
   kanbanStatuses: IKanbanStatus[];
@@ -18,8 +19,12 @@ export interface IContactList extends Document {
 const ContactListSchema = new Schema<IContactList>({
   name: {
     type: String,
-    required: true,
-    unique: true
+    required: true
+  },
+  organizationId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Organization',
+    index: true
   },
   isSystem: {
     type: Boolean,
@@ -35,6 +40,9 @@ const ContactListSchema = new Schema<IContactList>({
     order: { type: Number, required: true }
   }]
 }, { timestamps: true });
+
+// Compound index: unique name per organization (system lists can be global)
+ContactListSchema.index({ name: 1, organizationId: 1 }, { unique: true });
 
 export default mongoose.model<IContactList>('ContactList', ContactListSchema);
 

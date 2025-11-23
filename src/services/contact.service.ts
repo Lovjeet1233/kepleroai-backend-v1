@@ -245,6 +245,9 @@ export class ContactService {
   }
 
   async importFromCSV(listId: string, csvContent: string, defaultCountryCode: string) {
+    console.log('[CSV Import Service] Starting import for list:', listId);
+    console.log('[CSV Import Service] CSV content length:', csvContent.length);
+    
     return new Promise((resolve, reject) => {
       const results: any[] = [];
       const errors: any[] = [];
@@ -255,6 +258,8 @@ export class ContactService {
         skipEmptyLines: true,
         complete: async (parseResult) => {
           const rows = parseResult.data as any[];
+          console.log('[CSV Import Service] Parsed rows:', rows.length);
+          console.log('[CSV Import Service] First row:', rows[0]);
 
           for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
@@ -295,12 +300,23 @@ export class ContactService {
                 continue;
               }
 
-              // Create contact
+              // Get organization ID from the list
+              const list = await ContactList.findById(listId);
+              if (!list) {
+                errors.push({ row: i + 1, error: 'List not found' });
+                continue;
+              }
+
+              // Create contact with organization ID (if list has one)
               const contact = await Customer.create({
                 name,
                 email: email || undefined,
                 phone: phone || undefined,
-                tags
+                organizationId: list.organizationId || undefined,
+                tags,
+                source: 'csv_import',
+                company: row.company || row.Company || undefined,
+                notes: row.notes || row.Notes || undefined
               });
 
               // Add to list
@@ -310,20 +326,26 @@ export class ContactService {
               });
 
               results.push(contact);
+              console.log('[CSV Import Service] Created contact:', contact._id, contact.name);
 
             } catch (error: any) {
+              console.error(`[CSV Import Service] Error on row ${i + 1}:`, error.message);
               errors.push({ row: i + 1, error: error.message });
             }
           }
 
-          resolve({
+          const summary = {
             imported: results.length,
             failed: errors.length,
             duplicates: duplicates.length,
             errors: errors.slice(0, 10) // Return max 10 errors
-          });
+          };
+          
+          console.log('[CSV Import Service] Import complete:', summary);
+          resolve(summary);
         },
         error: (error: any) => {
+          console.error('[CSV Import Service] Parse error:', error);
           reject(new AppError(400, 'VALIDATION_ERROR', `CSV parsing error: ${error.message}`));
         }
       });

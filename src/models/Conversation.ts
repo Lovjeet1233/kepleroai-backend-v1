@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IConversation extends Document {
+  organizationId: mongoose.Types.ObjectId; // Multi-tenant support
   customerId: mongoose.Types.ObjectId;
   channel: 'whatsapp' | 'website' | 'email' | 'social' | 'phone';
   status: 'open' | 'unread' | 'support_request' | 'closed';
@@ -11,6 +12,11 @@ export interface IConversation extends Document {
   labels: string[];
   transcript?: Record<string, any>;
   campaignId?: mongoose.Types.ObjectId;
+  metadata?: {
+    threadId?: string;
+    collection?: string;
+    [key: string]: any;
+  };
   firstResponseAt?: Date;
   resolvedAt?: Date;
   createdAt: Date;
@@ -18,6 +24,12 @@ export interface IConversation extends Document {
 }
 
 const ConversationSchema = new Schema<IConversation>({
+  organizationId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Organization',
+    required: true,
+    index: true // Index for faster queries
+  },
   customerId: {
     type: Schema.Types.ObjectId,
     ref: 'Customer',
@@ -57,6 +69,10 @@ const ConversationSchema = new Schema<IConversation>({
   campaignId: {
     type: Schema.Types.ObjectId,
     ref: 'Campaign'
+  },
+  metadata: {
+    type: Schema.Types.Mixed,
+    default: {}
   },
   firstResponseAt: Date,
   resolvedAt: Date

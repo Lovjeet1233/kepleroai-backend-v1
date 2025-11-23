@@ -13,8 +13,15 @@ export class ConversationController {
   getAll = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const { page = 1, limit = 20, ...filters } = req.query;
+      
+      // CRITICAL: Filter by organization to ensure data isolation
+      const orgFilters = {
+        ...filters,
+        organizationId: req.user.organizationId.toString()
+      };
+      
       const result = await this.conversationService.findAll(
-        filters,
+        orgFilters,
         Number(page),
         Number(limit)
       );
@@ -40,14 +47,28 @@ export class ConversationController {
 
   addMessage = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-      const message = await this.conversationService.addMessage(
-        req.params.conversationId,
-        {
-          ...req.body,
-          operatorId: req.body.sender === 'operator' ? req.user._id : null
-        }
-      );
-      res.json(successResponse(message, 'Message sent'));
+      const { text, sender } = req.body;
+      const operatorId = sender === 'operator' ? req.user._id : null;
+      
+      // Use sendReply for operator messages to send via appropriate channel (WhatsApp/Instagram/Facebook)
+      if (sender === 'operator' && text) {
+        const message = await this.conversationService.sendReply(
+          req.params.conversationId,
+          text,
+          operatorId
+        );
+        res.json(successResponse(message, 'Message sent'));
+      } else {
+        // For AI messages or internal notes, just add to DB
+        const message = await this.conversationService.addMessage(
+          req.params.conversationId,
+          {
+            ...req.body,
+            operatorId
+          }
+        );
+        res.json(successResponse(message, 'Message added'));
+      }
     } catch (error) {
       next(error);
     }

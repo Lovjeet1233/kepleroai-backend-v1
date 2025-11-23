@@ -7,6 +7,8 @@ import PhoneSettings from '../models/PhoneSettings';
 import { WhatsAppService } from './whatsapp.service';
 import { AppError } from '../middleware/error.middleware';
 import axios from 'axios';
+import { trackUsage } from '../middleware/profileTracking.middleware';
+import { profileService } from './profile.service';
 
 const COMM_API = process.env.COMM_API || 'http://localhost:8000';
 
@@ -18,6 +20,25 @@ const VOICE_ID_MAP: Record<string, string> = {
   'jessica': 'cgSgspJ2msm6clMCkdW9',
   'sophia': 'pFZP5JQG7iQjIQuC4Bku',
   'domi': 'AZnzlk1XvdvUeBnXmlld',
+};
+
+/**
+ * Normalize phone number to E.164 format
+ * Ensures phone number starts with + prefix
+ */
+const normalizePhoneNumber = (phone: string): string => {
+  if (!phone) return phone;
+  
+  // Remove any whitespace
+  phone = phone.trim();
+  
+  // If already has +, return as is
+  if (phone.startsWith('+')) {
+    return phone;
+  }
+  
+  // Add + prefix
+  return '+' + phone;
 };
 
 interface TriggerHandler {
@@ -210,14 +231,34 @@ export class AutomationEngine {
 
         const voiceId = VOICE_ID_MAP[phoneSettings.selectedVoice] || VOICE_ID_MAP['adam'];
         
+        // Get API keys for LLM
+        let provider = 'openai';
+        let apiKey = '';
+        let apiKeysConfigured = false;
+        try {
+          const { apiKeysService } = await import('./apiKeys.service');
+          const apiKeys = await apiKeysService.getApiKeys(String(context?.userId || phoneSettings.userId));
+          provider = apiKeys.llmProvider;
+          apiKey = apiKeys.apiKey;
+          apiKeysConfigured = true;
+        } catch (error: any) {
+          console.warn('[Automation] Failed to fetch API keys:', error.message);
+          console.warn('[Automation] ⚠️  API keys not configured. Calls may fail. Please configure API keys in Settings → API Keys');
+        }
+        
+        // Normalize phone number to E.164 format
+        const normalizedPhone = normalizePhoneNumber(contact.phone);
+        
         // Prepare call request
         const callRequestBody: any = {
-          phone_number: contact.phone,
+          phone_number: normalizedPhone,
           name: contact.name || 'Customer',
           dynamic_instruction: config.dynamicInstruction || 'Have a friendly conversation',
           language: config.language || 'en',
           voice_id: voiceId,
           sip_trunk_id: phoneSettings.livekitSipTrunkId,
+          provider: provider,
+          api_key: apiKey
         };
 
         // Add optional fields
@@ -230,13 +271,29 @@ export class AutomationEngine {
 
         try {
           console.log(`[Automation] Making outbound call to ${COMM_API}/calls/outbound`);
-          console.log(`[Automation] Call request body:`, JSON.stringify(callRequestBody, null, 2));
+          console.log(`[Automation] Call request body:`, JSON.stringify({
+            ...callRequestBody,
+            api_key: callRequestBody.api_key ? '***configured***' : '❌ EMPTY'
+          }, null, 2));
+          
+          if (!apiKeysConfigured || !callRequestBody.api_key) {
+            console.error(`[Automation] ❌ CRITICAL: API Key is missing! Call will likely fail.`);
+            console.error(`[Automation] Please configure your API keys at Settings → API Keys`);
+          }
           
           const callResponse = await axios.post(`${COMM_API}/calls/outbound`, callRequestBody, {
             timeout: 360000,
           });
 
           console.log(`[Automation] Call response:`, callResponse.data);
+
+          // Track voice usage if call was successful
+          if (callResponse.data.status === 'success' && context.userId) {
+            const duration = callResponse.data.duration || 0; // Duration in seconds
+            const durationMinutes = Math.ceil(duration / 60); // Convert to minutes, round up
+            await trackUsage(context.userId, 'voice', durationMinutes);
+            console.log(`[Automation] Tracked ${durationMinutes} voice minutes for user ${context.userId}`);
+          }
 
           return {
             success: true,

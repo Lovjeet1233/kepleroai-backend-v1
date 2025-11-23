@@ -69,6 +69,11 @@ export class AuthService {
       throw new AppError(401, 'UNAUTHORIZED', 'Invalid credentials');
     }
 
+    // Check if user is OAuth user (no password)
+    if (!user.passwordHash && user.provider !== 'local') {
+      throw new AppError(401, 'UNAUTHORIZED', `Please sign in with ${user.provider}`);
+    }
+
     const isPasswordValid = await user.comparePassword(password);
     
     if (!isPasswordValid) {
@@ -94,7 +99,36 @@ export class AuthService {
         email: user.email,
         name: `${user.firstName} ${user.lastName}`,
         avatar: user.avatar,
-        role: user.role
+        role: user.role,
+        organizationId: user.organizationId
+      }
+    };
+  }
+
+  // OAuth Login - handles both Google and Facebook
+  async oauthLogin(user: IUser) {
+    const userId = (user._id as any).toString();
+    const accessToken = this.generateAccessToken(userId);
+    const refreshToken = this.generateRefreshToken(userId);
+
+    await this.storeRefreshToken(userId, refreshToken);
+
+    // Update last active
+    user.lastActiveAt = new Date();
+    await user.save();
+
+    return {
+      token: accessToken,
+      refreshToken,
+      expiresIn: 3600,
+      user: {
+        id: user._id,
+        email: user.email,
+        name: `${user.firstName} ${user.lastName}`,
+        avatar: user.avatar,
+        role: user.role,
+        organizationId: user.organizationId,
+        provider: user.provider
       }
     };
   }
@@ -163,6 +197,7 @@ export class AuthService {
       name: `${user.firstName} ${user.lastName}`,
       avatar: user.avatar,
       role: user.role,
+      organizationId: user.organizationId,
       permissions: user.permissions,
       createdAt: user.createdAt
     };

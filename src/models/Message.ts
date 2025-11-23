@@ -15,6 +15,7 @@ export interface IMessage extends Document {
   sourcesUsed: string[];
   topics: string[];
   timestamp: Date;
+  metadata?: Record<string, any>;
 }
 
 const MessageSchema = new Schema<IMessage>({
@@ -52,6 +53,10 @@ const MessageSchema = new Schema<IMessage>({
   timestamp: {
     type: Date,
     default: Date.now
+  },
+  metadata: {
+    type: Schema.Types.Mixed,
+    default: {}
   }
 });
 

@@ -9,11 +9,19 @@ export interface ICustomer extends Document {
   tags: string[];
   lists: mongoose.Types.ObjectId[];
   customProperties: Record<string, any>;
+  source?: string;
+  metadata?: Record<string, any>;
+  organizationId?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
 
 const CustomerSchema = new Schema<ICustomer>({
+  organizationId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Organization',
+    index: true
+  },
   name: { type: String, required: true },
   email: { type: String, lowercase: true, trim: true },
   phone: String,
@@ -30,6 +38,15 @@ const CustomerSchema = new Schema<ICustomer>({
   customProperties: {
     type: Map,
     of: Schema.Types.Mixed,
+    default: {}
+  },
+  source: {
+    type: String,
+    enum: ['manual', 'widget', 'campaign', 'import', 'api', 'whatsapp', 'instagram', 'facebook'],
+    default: 'manual'
+  },
+  metadata: {
+    type: Schema.Types.Mixed,
     default: {}
   }
 }, { timestamps: true });
