@@ -33,6 +33,9 @@ export class PhoneSettingsService {
       selectedVoice?: string;
       twilioPhoneNumber?: string;
       livekitSipTrunkId?: string;
+      twilioTrunkSid?: string;
+      terminationUri?: string;
+      originationUri?: string;
       humanOperatorPhone?: string;
     }
   ) {
@@ -47,6 +50,15 @@ export class PhoneSettingsService {
     }
     if (data.livekitSipTrunkId !== undefined) {
       settings.livekitSipTrunkId = data.livekitSipTrunkId;
+    }
+    if (data.twilioTrunkSid !== undefined) {
+      settings.twilioTrunkSid = data.twilioTrunkSid;
+    }
+    if (data.terminationUri !== undefined) {
+      settings.terminationUri = data.terminationUri;
+    }
+    if (data.originationUri !== undefined) {
+      settings.originationUri = data.originationUri;
     }
     if (data.humanOperatorPhone !== undefined) {
       settings.humanOperatorPhone = data.humanOperatorPhone;

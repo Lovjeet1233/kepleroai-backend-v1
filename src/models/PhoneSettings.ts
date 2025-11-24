@@ -5,6 +5,9 @@ export interface IPhoneSettings extends Document {
   selectedVoice: string;
   twilioPhoneNumber: string;
   livekitSipTrunkId: string;
+  twilioTrunkSid: string;
+  terminationUri: string;
+  originationUri: string;
   humanOperatorPhone: string;
   isConfigured: boolean;
   createdAt: Date;
@@ -27,6 +30,18 @@ const PhoneSettingsSchema = new Schema<IPhoneSettings>({
     default: ''
   },
   livekitSipTrunkId: {
+    type: String,
+    default: ''
+  },
+  twilioTrunkSid: {
+    type: String,
+    default: ''
+  },
+  terminationUri: {
+    type: String,
+    default: ''
+  },
+  originationUri: {
     type: String,
     default: ''
   },

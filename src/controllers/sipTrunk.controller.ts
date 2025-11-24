@@ -33,9 +33,12 @@ export class SipTrunkController {
         twilio_auth_token
       });
 
-      // Save LiveKit trunk ID and phone number to user's phone settings
+      // Save all trunk details to user's phone settings
       await phoneSettingsService.update(userId, {
         livekitSipTrunkId: result.livekit_trunk_id,
+        twilioTrunkSid: result.twilio_trunk_sid,
+        terminationUri: result.termination_uri,
+        originationUri: result.origination_uri,
         twilioPhoneNumber: phone_number
       });
 
@@ -74,7 +77,7 @@ export class SipTrunkController {
         password
       });
 
-      // Save LiveKit trunk ID and phone number to user's phone settings
+      // Save trunk details to user's phone settings
       await phoneSettingsService.update(userId, {
         livekitSipTrunkId: result.livekit_trunk_id,
         twilioPhoneNumber: phone_number
