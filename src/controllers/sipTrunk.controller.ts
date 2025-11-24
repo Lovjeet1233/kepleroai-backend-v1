@@ -14,7 +14,9 @@ export class SipTrunkController {
       const userId = req.user!.id;
       const { label, phone_number, twilio_sid, twilio_auth_token } = req.body;
 
-      console.log('[SIP Trunk Controller] Setup request received');
+      console.log('[SIP Trunk Controller] ===== SETUP REQUEST RECEIVED =====');
+      console.log('[SIP Trunk Controller] Endpoint:', req.method, req.originalUrl);
+      console.log('[SIP Trunk Controller] Full URL:', `${req.protocol}://${req.get('host')}${req.originalUrl}`);
       console.log('[SIP Trunk Controller] User ID:', userId);
       console.log('[SIP Trunk Controller] Request body:', {
         label,

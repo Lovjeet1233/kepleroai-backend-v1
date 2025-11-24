@@ -46,8 +46,12 @@ export class SipTrunkService {
    */
   async setupSipTrunk(data: SetupSipTrunkRequest): Promise<SetupSipTrunkResponse> {
     try {
-      console.log('[SIP Trunk Service] Setting up Twilio SIP trunk...');
-      console.log('[SIP Trunk Service] Python endpoint:', `${COMM_API_URL}/calls/setup-sip-trunk`);
+      const pythonUrl = `${COMM_API_URL}/calls/setup-sip-trunk`;
+      
+      console.log('[SIP Trunk Service] ===== CALLING PYTHON SERVICE =====');
+      console.log('[SIP Trunk Service] Python API Base:', COMM_API_URL);
+      console.log('[SIP Trunk Service] Full URL:', pythonUrl);
+      console.log('[SIP Trunk Service] Method: POST');
       console.log('[SIP Trunk Service] Request payload:', {
         label: data.label,
         phone_number: data.phone_number,
@@ -56,7 +60,7 @@ export class SipTrunkService {
       });
       
       const response = await axios.post<SetupSipTrunkResponse>(
-        `${COMM_API_URL}/calls/setup-sip-trunk`,
+        pythonUrl,
         {
           label: data.label,
           phone_number: data.phone_number,
