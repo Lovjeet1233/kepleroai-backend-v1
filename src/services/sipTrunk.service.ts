@@ -1,0 +1,116 @@
+import axios from 'axios';
+import { AppError } from '../middleware/error.middleware';
+
+const COMM_API_URL = process.env.COMM_API_URL || 'http://localhost:8000';
+
+interface SetupSipTrunkRequest {
+  label: string;
+  phone_number: string;
+  twilio_sid: string;
+  twilio_auth_token: string;
+}
+
+interface SetupSipTrunkResponse {
+  status: string;
+  message: string;
+  twilio_trunk_sid: string;
+  livekit_trunk_id: string;
+  termination_uri: string;
+  credential_list_sid: string;
+  ip_acl_sid: string;
+  username: string;
+  origination_uri: string;
+  origination_uri_sid: string;
+}
+
+interface CreateLivekitTrunkRequest {
+  label: string;
+  phone_number: string;
+  sip_address: string;
+  username?: string;
+  password?: string;
+}
+
+interface CreateLivekitTrunkResponse {
+  status: string;
+  message: string;
+  livekit_trunk_id: string;
+  sip_address: string;
+  phone_number: string;
+}
+
+export class SipTrunkService {
+  /**
+   * Setup SIP trunk with Twilio
+   * Calls Python /calls/setup-sip-trunk endpoint
+   */
+  async setupSipTrunk(data: SetupSipTrunkRequest): Promise<SetupSipTrunkResponse> {
+    try {
+      console.log('[SIP Trunk] Setting up Twilio SIP trunk...');
+      
+      const response = await axios.post<SetupSipTrunkResponse>(
+        `${COMM_API_URL}/calls/setup-sip-trunk`,
+        {
+          label: data.label,
+          phone_number: data.phone_number,
+          twilio_sid: data.twilio_sid,
+          twilio_auth_token: data.twilio_auth_token
+        },
+        {
+          timeout: 60000 // 60 seconds timeout
+        }
+      );
+
+      console.log('[SIP Trunk] ✅ Twilio SIP trunk setup successful');
+      console.log('[SIP Trunk] LiveKit Trunk ID:', response.data.livekit_trunk_id);
+      
+      return response.data;
+    } catch (error: any) {
+      console.error('[SIP Trunk] ❌ Failed to setup Twilio SIP trunk:', error.response?.data || error.message);
+      throw new AppError(
+        error.response?.status || 500,
+        'SIP_TRUNK_SETUP_ERROR',
+        error.response?.data?.message || error.response?.data?.detail || 'Failed to setup SIP trunk with Twilio'
+      );
+    }
+  }
+
+  /**
+   * Create LiveKit SIP trunk
+   * Calls Python /calls/create-livekit-trunk endpoint
+   */
+  async createLivekitTrunk(data: CreateLivekitTrunkRequest): Promise<CreateLivekitTrunkResponse> {
+    try {
+      console.log('[SIP Trunk] Creating LiveKit SIP trunk...');
+      
+      const response = await axios.post<CreateLivekitTrunkResponse>(
+        `${COMM_API_URL}/calls/create-livekit-trunk`,
+        {
+          label: data.label,
+          phone_number: data.phone_number,
+          sip_address: data.sip_address,
+          username: data.username || 'username',
+          password: data.password || 'password'
+        },
+        {
+          timeout: 60000 // 60 seconds timeout
+        }
+      );
+
+      console.log('[SIP Trunk] ✅ LiveKit SIP trunk created successfully');
+      console.log('[SIP Trunk] LiveKit Trunk ID:', response.data.livekit_trunk_id);
+      
+      return response.data;
+    } catch (error: any) {
+      console.error('[SIP Trunk] ❌ Failed to create LiveKit SIP trunk:', error.response?.data || error.message);
+      throw new AppError(
+        error.response?.status || 500,
+        'LIVEKIT_TRUNK_ERROR',
+        error.response?.data?.message || error.response?.data?.detail || 'Failed to create LiveKit SIP trunk'
+      );
+    }
+  }
+}
+
+export const sipTrunkService = new SipTrunkService();
+

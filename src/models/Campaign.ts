@@ -28,7 +28,6 @@ export interface ICampaign extends Document {
   templateVariables?: Record<string, string>;
   dynamicInstruction?: string;
   language?: string;
-  emotion?: string;
   status: 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed' | 'cancelled';
   scheduledAt?: Date;
   sentAt?: Date;
@@ -70,10 +69,6 @@ const CampaignSchema = new Schema<ICampaign>({
   language: {
     type: String,
     default: 'en'
-  },
-  emotion: {
-    type: String,
-    default: 'Calm'
   },
   status: {
     type: String,
