@@ -270,11 +270,14 @@ export class CampaignService {
     const transferTo = phoneSettings.humanOperatorPhone || '';
     const escalationCondition = aiBehavior.voiceAgent?.humanOperator?.escalationRules?.join('; ') || '';
 
-    console.log(`[Campaign ${campaignId}] Using voice: ${phoneSettings.selectedVoice} (${voiceId})`);
+    console.log(`[Campaign ${campaignId}] ===== CAMPAIGN CONFIGURATION =====`);
+    console.log(`[Campaign ${campaignId}] Voice: ${phoneSettings.selectedVoice} (${voiceId})`);
     console.log(`[Campaign ${campaignId}] SIP Trunk ID: ${phoneSettings.livekitSipTrunkId}`);
-    if (transferTo) {
-      console.log(`[Campaign ${campaignId}] Transfer to: ${transferTo}`);
-    }
+    console.log(`[Campaign ${campaignId}] Dynamic Instruction: ${campaign.dynamicInstruction || '(not set)'}`);
+    console.log(`[Campaign ${campaignId}] Language: ${campaign.language || 'en'}`);
+    console.log(`[Campaign ${campaignId}] Transfer To: ${transferTo || '(not set)'}`);
+    console.log(`[Campaign ${campaignId}] Escalation Condition: ${escalationCondition || '(not set)'}`);
+    console.log(`[Campaign ${campaignId}] =====================================`);
 
     const COMM_API = process.env.COMM_API_URL || 'http://localhost:8000';
     const results: any[] = [];
@@ -351,13 +354,14 @@ export class CampaignService {
               console.log(`[Campaign ${campaignId}] Call Request Body:`, {
                 phone_number: callRequestBody.phone_number,
                 name: callRequestBody.name,
+                dynamic_instruction: callRequestBody.dynamic_instruction || '(empty)',
+                language: callRequestBody.language,
                 voice_id: callRequestBody.voice_id,
                 sip_trunk_id: callRequestBody.sip_trunk_id,
+                transfer_to: callRequestBody.transfer_to || '(not set)',
+                escalation_condition: callRequestBody.escalation_condition || '(not set)',
                 provider: callRequestBody.provider,
-                api_key: callRequestBody.api_key ? '***configured***' : '❌ EMPTY',
-                language: callRequestBody.language,
-                has_transfer_to: !!callRequestBody.transfer_to,
-                has_escalation_condition: !!callRequestBody.escalation_condition
+                api_key: callRequestBody.api_key ? '***configured***' : '❌ EMPTY'
               });
 
               if (!apiKeysConfigured || !callRequestBody.api_key) {
