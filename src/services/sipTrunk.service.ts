@@ -46,7 +46,14 @@ export class SipTrunkService {
    */
   async setupSipTrunk(data: SetupSipTrunkRequest): Promise<SetupSipTrunkResponse> {
     try {
-      console.log('[SIP Trunk] Setting up Twilio SIP trunk...');
+      console.log('[SIP Trunk Service] Setting up Twilio SIP trunk...');
+      console.log('[SIP Trunk Service] Python endpoint:', `${COMM_API_URL}/calls/setup-sip-trunk`);
+      console.log('[SIP Trunk Service] Request payload:', {
+        label: data.label,
+        phone_number: data.phone_number,
+        twilio_sid: data.twilio_sid,
+        twilio_auth_token: '***hidden***'
+      });
       
       const response = await axios.post<SetupSipTrunkResponse>(
         `${COMM_API_URL}/calls/setup-sip-trunk`,
@@ -61,8 +68,21 @@ export class SipTrunkService {
         }
       );
 
-      console.log('[SIP Trunk] ✅ Twilio SIP trunk setup successful');
-      console.log('[SIP Trunk] LiveKit Trunk ID:', response.data.livekit_trunk_id);
+      console.log('[SIP Trunk Service] ✅ Python response received');
+      console.log('[SIP Trunk Service] Status:', response.status);
+      console.log('[SIP Trunk Service] Full response body:');
+      console.log(JSON.stringify(response.data, null, 2));
+      console.log('[SIP Trunk Service] Response fields breakdown:');
+      console.log('  - status:', response.data.status);
+      console.log('  - message:', response.data.message);
+      console.log('  - livekit_trunk_id:', response.data.livekit_trunk_id);
+      console.log('  - twilio_trunk_sid:', response.data.twilio_trunk_sid);
+      console.log('  - termination_uri:', response.data.termination_uri);
+      console.log('  - origination_uri:', response.data.origination_uri);
+      console.log('  - credential_list_sid:', response.data.credential_list_sid);
+      console.log('  - ip_acl_sid:', response.data.ip_acl_sid);
+      console.log('  - username:', response.data.username);
+      console.log('  - origination_uri_sid:', response.data.origination_uri_sid);
       
       return response.data;
     } catch (error: any) {

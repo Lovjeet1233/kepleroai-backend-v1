@@ -14,8 +14,18 @@ export class SipTrunkController {
       const userId = req.user!.id;
       const { label, phone_number, twilio_sid, twilio_auth_token } = req.body;
 
+      console.log('[SIP Trunk Controller] Setup request received');
+      console.log('[SIP Trunk Controller] User ID:', userId);
+      console.log('[SIP Trunk Controller] Request body:', {
+        label,
+        phone_number,
+        twilio_sid,
+        twilio_auth_token: '***hidden***'
+      });
+
       // Validate required fields
       if (!label || !phone_number || !twilio_sid || !twilio_auth_token) {
+        console.error('[SIP Trunk Controller] Missing required fields');
         return res.status(400).json({
           success: false,
           error: {
@@ -26,6 +36,7 @@ export class SipTrunkController {
       }
 
       // Call Python service to setup SIP trunk
+      console.log('[SIP Trunk Controller] Calling Python service...');
       const result = await sipTrunkService.setupSipTrunk({
         label,
         phone_number,
@@ -33,8 +44,12 @@ export class SipTrunkController {
         twilio_auth_token
       });
 
+      console.log('[SIP Trunk Controller] ✅ Python service response:');
+      console.log(JSON.stringify(result, null, 2));
+
       // Save all trunk details to user's phone settings
-      await phoneSettingsService.update(userId, {
+      console.log('[SIP Trunk Controller] Saving to database...');
+      const updatedSettings = await phoneSettingsService.update(userId, {
         livekitSipTrunkId: result.livekit_trunk_id,
         twilioTrunkSid: result.twilio_trunk_sid,
         terminationUri: result.termination_uri,
@@ -42,6 +57,15 @@ export class SipTrunkController {
         twilioPhoneNumber: phone_number
       });
 
+      console.log('[SIP Trunk Controller] ✅ Settings saved:', {
+        livekitSipTrunkId: updatedSettings.livekitSipTrunkId,
+        twilioTrunkSid: updatedSettings.twilioTrunkSid,
+        terminationUri: updatedSettings.terminationUri,
+        originationUri: updatedSettings.originationUri,
+        twilioPhoneNumber: updatedSettings.twilioPhoneNumber
+      });
+
+      console.log('[SIP Trunk Controller] Sending response to frontend...');
       res.json(successResponse(result, 'SIP trunk setup successful'));
     } catch (error) {
       next(error);
