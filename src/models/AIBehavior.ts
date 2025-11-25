@@ -17,6 +17,7 @@ export interface IAIBehavior extends Document {
   voiceAgent: {
     improvements: string;
     systemPrompt: string;
+    language: string; // Language code for voice agent (en, ar, tr, es, it)
     humanOperator: {
       phoneNumber: string;
       escalationRules: string[];
@@ -62,6 +63,7 @@ const AIBehaviorSchema = new Schema<IAIBehavior>({
   voiceAgent: {
     improvements: { type: String, default: '' },
     systemPrompt: { type: String, default: '' },
+    language: { type: String, default: 'en' }, // Default to English
     humanOperator: {
       phoneNumber: { type: String, default: '' },
       escalationRules: { type: [String], default: [] },

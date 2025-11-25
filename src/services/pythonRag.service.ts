@@ -33,6 +33,31 @@ export class PythonRagService {
   }
 
   /**
+   * Delete a collection from the RAG system
+   */
+  async deleteCollection(collectionName: string): Promise<any> {
+    try {
+      console.log(`[Python RAG] Deleting collection: ${collectionName}`);
+      
+      const response = await axios.delete(`${PYTHON_RAG_BASE_URL}/rag/delete_collection`, {
+        data: {
+          collection_name: collectionName
+        }
+      });
+
+      console.log(`[Python RAG] Collection deleted successfully: ${collectionName}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('[Python RAG] Failed to delete collection:', error.response?.data || error.message);
+      throw new AppError(
+        500,
+        'RAG_COLLECTION_ERROR',
+        `Failed to delete RAG collection: ${error.response?.data?.detail || error.message}`
+      );
+    }
+  }
+
+  /**
    * Ingest data into a collection
    * Supports URLs, PDFs, and Excel files
    */

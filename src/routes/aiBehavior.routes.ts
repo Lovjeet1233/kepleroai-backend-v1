@@ -18,7 +18,9 @@ router.patch('/chat-agent/human-operator', aiBehaviorController.updateChatAgentH
 // Voice Agent routes
 router.patch('/voice-agent/improvements', aiBehaviorController.updateVoiceAgentImprovements);
 router.patch('/voice-agent/prompt', aiBehaviorController.updateVoiceAgentPrompt);
+router.patch('/voice-agent/language', aiBehaviorController.updateVoiceAgentLanguage);
 router.patch('/voice-agent/human-operator', aiBehaviorController.updateVoiceAgentHumanOperator);
+router.post('/voice-agent/test', aiBehaviorController.testVoiceAgent);
 
 // Knowledge Base linking
 router.patch('/knowledge-base', aiBehaviorController.setKnowledgeBase);

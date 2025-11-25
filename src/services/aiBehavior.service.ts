@@ -31,6 +31,7 @@ export class AIBehaviorService {
           voiceAgent: {
             improvements: '',
             systemPrompt: 'You are a helpful AI voice assistant. Speak clearly, be empathetic, and provide concise answers.',
+            language: 'en', // Default to English
             humanOperator: {
               phoneNumber: '',
               escalationRules: [],
@@ -150,6 +151,23 @@ export class AIBehaviorService {
   }
 
   /**
+   * Update Voice Agent language
+   */
+  async updateVoiceAgentLanguage(userId: string, language: string) {
+    try {
+      const aiBehavior = await this.get(userId);
+      aiBehavior.voiceAgent.language = language;
+      await aiBehavior.save();
+      
+      console.log('[AI Behavior] Updated voice agent language');
+      return aiBehavior;
+    } catch (error: any) {
+      console.error('[AI Behavior] Failed to update voice agent language:', error);
+      throw new AppError(500, 'AI_BEHAVIOR_ERROR', 'Failed to update voice agent language');
+    }
+  }
+
+  /**
    * Update Voice Agent human operator configuration
    */
   async updateVoiceAgentHumanOperator(userId: string, config: {
@@ -237,6 +255,19 @@ export class AIBehaviorService {
     } catch (error: any) {
       console.error('[AI Behavior] Failed to get voice system prompt:', error);
       throw new AppError(500, 'AI_BEHAVIOR_ERROR', 'Failed to get voice system prompt');
+    }
+  }
+
+  /**
+   * Get voice agent language
+   */
+  async getVoiceAgentLanguage(userId: string): Promise<string> {
+    try {
+      const aiBehavior = await this.get(userId);
+      return aiBehavior.voiceAgent.language || 'en';
+    } catch (error: any) {
+      console.error('[AI Behavior] Failed to get voice agent language:', error);
+      return 'en'; // Default fallback
     }
   }
 }

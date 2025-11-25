@@ -13,18 +13,32 @@ import axios from 'axios';
 import { trackUsage } from '../middleware/profileTracking.middleware';
 import { profileService } from './profile.service';
 
-// Voice ID mapping for ElevenLabs
+// Voice ID mapping from voice name to ElevenLabs voice ID
 const VOICE_ID_MAP: Record<string, string> = {
+  'domenico': 'QABTI1ryPrQsJUflbKB7',
+  'thomas': 'CITWdMEsnRduEUkNWXQv',
+  'mario': 'irAl0cku0Hx4TEUJ8d1Q',
+  'gianp': 'SpoXt7BywHwFLisCTpQ3',
+  'vittorio': 'nH7uLS5UdEnvKEOAXtlQ',
+  'ginevra': 'QITiGyM4owEZrBEf0QV8',
+  'roberta': 'ZzFXkjuO1rPntDj6At5C',
+  'giusy': '8KInRSd4DtD5L5gK7itu',
+  'roxy': 'mGiFn5Udfw93ewbgFHaP',
+  'sami': 'kAzI34nYjizE0zON6rXv',
+  'alejandro': 'YKUjKbMlejgvkOZlnnvt',
+  'antonio': 'htFfPSZGJwjBv1CL0aMD',
+  'el_faraon': '8mBRP99B2Ng2QwsJMFQl',
+  'lumina': 'x5IDPSl4ZUbhosMmVFTk',
+  'elena': 'tXgbXPnsMpKXkuTgvE3h',
+  'sara': 'gD1IexrzCvsXPHUuT0s3',
+  'zara': 'jqcCZkN6Knx8BJ5TBdYR',
+  'brittney': 'kPzsL2i3teMYv0FxEYQ6',
+  'julieanne': '8WaMCGQzWsKvf7sGPqjE',
+  'allison': 'xctasy8XvGp2cVO9HL9k',
+  'jameson': 'Mu5jxyqZOLIGltFpfalg',
+  'mark': 'UgBBYS2sOqTuMpoF3BR0',
+  'archie': 'kmSVBPu7loj4ayNinwWM',
   'adam': 'pNInz6obpgDQGcFmaJgB',
-  'alice': 'Xb7hH8MSUJpSbSDYk0k2',
-  'antoni': 'ErXwobaYiN019PkySvjV',
-  'arnold': 'VR6AewLTigWG4xSOukaG',
-  'bill': 'pqHfZKP75CvOlQylNhV4',
-  'bella': 'EXAVITQu4vr4xnSDxMaL',
-  'elli': 'MF3mGyEYCl7XYWbV9V6O',
-  'josh': 'TxGEqnHWrfWFTfGW9XjX',
-  'liam': 'TX3LPaxmHKxFdv7VOQHJ',
-  'domi': 'AZnzlk1XvdvUeBnXmlld',
 };
 
 /**
@@ -263,7 +277,7 @@ export class CampaignService {
     const phoneSettings = await phoneSettingsService.get(userId);
     const aiBehavior = await aiBehaviorService.get(userId);
 
-    // Get voice_id from selected voice
+    // Map selectedVoice name to ElevenLabs voice ID
     const voiceId = VOICE_ID_MAP[phoneSettings.selectedVoice] || VOICE_ID_MAP['adam'];
     
     // Get transfer_to from phone settings and escalation_condition from AI behavior
@@ -279,7 +293,7 @@ export class CampaignService {
     console.log(`[Campaign ${campaignId}] Escalation Condition: ${escalationCondition || '(not set)'}`);
     console.log(`[Campaign ${campaignId}] =====================================`);
 
-    const COMM_API = process.env.COMM_API_URL || 'http://localhost:8000';
+    const COMM_API = process.env.COMM_API_URL || 'https://keplerov1-python-production.up.railway.app';
     const results: any[] = [];
     let successCount = 0;
     let failCount = 0;
@@ -327,6 +341,22 @@ export class CampaignService {
                 console.warn(`[Campaign ${campaignId}] ⚠️  API keys not configured. Calls may fail. Please configure API keys in Settings → API Keys`);
               }
               
+              // Get voice agent prompt and language from AI Behavior settings
+              let voiceAgentPrompt = campaign.dynamicInstruction || '';
+              let voiceLanguage = campaign.language || 'en';
+              
+              // If no dynamic instruction in campaign, fetch from AI Behavior
+              if (!voiceAgentPrompt) {
+                try {
+                  const aiBehavior = await aiBehaviorService.get(userId);
+                  voiceAgentPrompt = aiBehavior.voiceAgent.systemPrompt || 'You are a helpful AI voice assistant.';
+                  voiceLanguage = aiBehavior.voiceAgent.language || 'en';
+                  console.log(`[Campaign ${campaignId}] Using voice agent prompt from AI Behavior settings`);
+                } catch (error: any) {
+                  console.warn(`[Campaign ${campaignId}] Failed to fetch voice agent prompt:`, error.message);
+                }
+              }
+              
               // Normalize phone number to E.164 format
               const normalizedPhone = normalizePhoneNumber(contact.phone);
               
@@ -334,8 +364,8 @@ export class CampaignService {
               const callRequestBody: any = {
                 phone_number: normalizedPhone,
                 name: contact.name || 'Customer',
-                dynamic_instruction: campaign.dynamicInstruction || '',
-                language: campaign.language || 'en',
+                dynamic_instruction: voiceAgentPrompt,
+                language: voiceLanguage,
                 voice_id: voiceId,
                 sip_trunk_id: phoneSettings.livekitSipTrunkId,
                 provider: provider,
@@ -350,28 +380,43 @@ export class CampaignService {
                 callRequestBody.escalation_condition = escalationCondition;
               }
 
+              // Get escalation conditions from AIBehavior if not set
+              if (!callRequestBody.escalation_condition) {
+                try {
+                  const aiBehavior = await aiBehaviorService.get(userId);
+                  const escalationRules = aiBehavior.voiceAgent.humanOperator?.escalationRules || [];
+                  if (escalationRules.length > 0) {
+                    callRequestBody.escalation_condition = escalationRules.join('. ');
+                  }
+                } catch (error: any) {
+                  console.warn(`[Campaign ${campaignId}] Could not fetch escalation conditions:`, error.message);
+                }
+              }
+
+              const callUrl = `${COMM_API}/calls/outbound`;
+              
               // Log request details for debugging
-              console.log(`[Campaign ${campaignId}] Call Request Body:`, {
-                phone_number: callRequestBody.phone_number,
-                name: callRequestBody.name,
-                dynamic_instruction: callRequestBody.dynamic_instruction || '(empty)',
-                language: callRequestBody.language,
-                voice_id: callRequestBody.voice_id,
-                sip_trunk_id: callRequestBody.sip_trunk_id,
-                transfer_to: callRequestBody.transfer_to || '(not set)',
-                escalation_condition: callRequestBody.escalation_condition || '(not set)',
-                provider: callRequestBody.provider,
-                api_key: callRequestBody.api_key ? '***configured***' : '❌ EMPTY'
-              });
+              console.log(`\n========== CAMPAIGN ${campaignId} - OUTBOUND CALL ==========`);
+              console.log(`📞 [Campaign] URL: ${callUrl}`);
+              console.log(`📦 [Campaign] Full Request Body:`, JSON.stringify({
+                ...callRequestBody,
+                api_key: callRequestBody.api_key ? `${callRequestBody.api_key.substring(0, 10)}...***` : '❌ NOT_SET'
+              }, null, 2));
+              console.log(`=====================================================\n`);
 
               if (!apiKeysConfigured || !callRequestBody.api_key) {
                 console.error(`[Campaign ${campaignId}] ❌ CRITICAL: API Key is missing! Call will likely fail.`);
                 console.error(`[Campaign ${campaignId}] Please configure your API keys at Settings → API Keys`);
               }
 
-              const callResponse = await axios.post(`${COMM_API}/calls/outbound`, callRequestBody, {
+              const callResponse = await axios.post(callUrl, callRequestBody, {
                 timeout: 360000, // 6 minutes timeout (call waits max 5 minutes for transcript)
               });
+
+              console.log(`\n========== CAMPAIGN ${campaignId} - CALL RESPONSE ==========`);
+              console.log(`✅ [Campaign] Response Status: ${callResponse.status}`);
+              console.log(`📦 [Campaign] Full Response Body:`, JSON.stringify(callResponse.data, null, 2));
+              console.log(`=====================================================\n`);
 
               contactResult.call_status = callResponse.data.status === 'success' ? 'success' : 'failed';
               contactResult.transcript = callResponse.data.transcript || null;

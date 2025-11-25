@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 
 export interface IUser extends Document {
   email: string;
+  password?: string; // Plain password (as requested)
   passwordHash?: string; // Optional for OAuth users
   firstName: string;
   lastName: string;
@@ -10,7 +11,7 @@ export interface IUser extends Document {
   role: 'admin' | 'operator' | 'viewer';
   permissions: string[];
   status: 'active' | 'inactive' | 'invited';
-  organizationId: mongoose.Types.ObjectId; // Multi-tenant support
+  organizationId?: mongoose.Types.ObjectId; // Multi-tenant support (optional for now)
   lastActiveAt?: Date;
   // OAuth fields
   provider?: 'local' | 'google';
@@ -30,6 +31,10 @@ const UserSchema = new Schema<IUser>({
     unique: true,
     lowercase: true,
     trim: true
+  },
+  password: {
+    type: String,
+    required: false // Plain password (as requested for operator credentials)
   },
   passwordHash: {
     type: String,
@@ -61,7 +66,7 @@ const UserSchema = new Schema<IUser>({
   organizationId: {
     type: Schema.Types.ObjectId,
     ref: 'Organization',
-    required: true
+    required: false // Made optional for now
   },
   lastActiveAt: Date,
   // OAuth fields
@@ -82,17 +87,26 @@ const UserSchema = new Schema<IUser>({
   timestamps: true
 });
 
-// Hash password before saving
+// Hash password before saving (for passwordHash field)
 UserSchema.pre('save', async function(next) {
-  // Only hash password if it exists and has been modified
-  if (!this.passwordHash || !this.isModified('passwordHash')) return next();
-  this.passwordHash = await bcrypt.hash(this.passwordHash, 10);
+  // Store plain password in password field (as requested)
+  // Also create passwordHash for authentication
+  if (this.password && this.isModified('password')) {
+    this.passwordHash = await bcrypt.hash(this.password, 10);
+  } else if (this.passwordHash && this.isModified('passwordHash')) {
+    // Only hash passwordHash if it exists and has been modified (for old users)
+    this.passwordHash = await bcrypt.hash(this.passwordHash, 10);
+  }
   next();
 });
 
 // Method to compare passwords
 UserSchema.methods.comparePassword = async function(candidatePassword: string) {
-  // Return false if no password hash (OAuth users)
+  // First try plain password comparison
+  if (this.password && candidatePassword === this.password) {
+    return true;
+  }
+  // Then try hashed password
   if (!this.passwordHash) return false;
   return await bcrypt.compare(candidatePassword, this.passwordHash);
 };

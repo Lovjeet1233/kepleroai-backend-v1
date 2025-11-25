@@ -10,16 +10,34 @@ import axios from 'axios';
 import { trackUsage } from '../middleware/profileTracking.middleware';
 import { profileService } from './profile.service';
 
-const COMM_API = process.env.COMM_API || 'http://localhost:8000';
+const COMM_API = process.env.COMM_API || 'https://keplerov1-python-production.up.railway.app';
 
+// Voice ID mapping from voice name to ElevenLabs voice ID
 const VOICE_ID_MAP: Record<string, string> = {
+  'domenico': 'QABTI1ryPrQsJUflbKB7',
+  'thomas': 'CITWdMEsnRduEUkNWXQv',
+  'mario': 'irAl0cku0Hx4TEUJ8d1Q',
+  'gianp': 'SpoXt7BywHwFLisCTpQ3',
+  'vittorio': 'nH7uLS5UdEnvKEOAXtlQ',
+  'ginevra': 'QITiGyM4owEZrBEf0QV8',
+  'roberta': 'ZzFXkjuO1rPntDj6At5C',
+  'giusy': '8KInRSd4DtD5L5gK7itu',
+  'roxy': 'mGiFn5Udfw93ewbgFHaP',
+  'sami': 'kAzI34nYjizE0zON6rXv',
+  'alejandro': 'YKUjKbMlejgvkOZlnnvt',
+  'antonio': 'htFfPSZGJwjBv1CL0aMD',
+  'el_faraon': '8mBRP99B2Ng2QwsJMFQl',
+  'lumina': 'x5IDPSl4ZUbhosMmVFTk',
+  'elena': 'tXgbXPnsMpKXkuTgvE3h',
+  'sara': 'gD1IexrzCvsXPHUuT0s3',
+  'zara': 'jqcCZkN6Knx8BJ5TBdYR',
+  'brittney': 'kPzsL2i3teMYv0FxEYQ6',
+  'julieanne': '8WaMCGQzWsKvf7sGPqjE',
+  'allison': 'xctasy8XvGp2cVO9HL9k',
+  'jameson': 'Mu5jxyqZOLIGltFpfalg',
+  'mark': 'UgBBYS2sOqTuMpoF3BR0',
+  'archie': 'kmSVBPu7loj4ayNinwWM',
   'adam': 'pNInz6obpgDQGcFmaJgB',
-  'alice': '21m00Tcm4TlvDq8ikWAM',
-  'rachel': 'XrExE9yKIg1WjnnlVkGX',
-  'charlie': 'IKne3meq5aSn9XLyUdCD',
-  'jessica': 'cgSgspJ2msm6clMCkdW9',
-  'sophia': 'pFZP5JQG7iQjIQuC4Bku',
-  'domi': 'AZnzlk1XvdvUeBnXmlld',
 };
 
 /**
@@ -229,6 +247,7 @@ export class AutomationEngine {
           throw new Error('Phone settings not configured. Please configure phone settings in the Settings page.');
         }
 
+        // Map selectedVoice name to ElevenLabs voice ID
         const voiceId = VOICE_ID_MAP[phoneSettings.selectedVoice] || VOICE_ID_MAP['adam'];
         
         // Get API keys for LLM
@@ -246,6 +265,24 @@ export class AutomationEngine {
           console.warn('[Automation] ⚠️  API keys not configured. Calls may fail. Please configure API keys in Settings → API Keys');
         }
         
+        // Get voice agent prompt and language from AI Behavior settings
+        let voiceAgentPrompt = config.dynamicInstruction || '';
+        let voiceLanguage = config.language || 'en';
+        
+        // If no dynamic instruction in config, fetch from AI Behavior
+        if (!voiceAgentPrompt && context?.userId) {
+          try {
+            const { aiBehaviorService } = await import('./aiBehavior.service');
+            const aiBehavior = await aiBehaviorService.get(context.userId);
+            voiceAgentPrompt = aiBehavior.voiceAgent.systemPrompt || 'You are a helpful AI voice assistant.';
+            voiceLanguage = aiBehavior.voiceAgent.language || 'en';
+            console.log('[Automation] Using voice agent prompt from AI Behavior settings');
+          } catch (error: any) {
+            console.warn('[Automation] Failed to fetch voice agent prompt:', error.message);
+            voiceAgentPrompt = 'Have a friendly conversation';
+          }
+        }
+        
         // Normalize phone number to E.164 format
         const normalizedPhone = normalizePhoneNumber(contact.phone);
         
@@ -253,8 +290,8 @@ export class AutomationEngine {
         const callRequestBody: any = {
           phone_number: normalizedPhone,
           name: contact.name || 'Customer',
-          dynamic_instruction: config.dynamicInstruction || 'Have a friendly conversation',
-          language: config.language || 'en',
+          dynamic_instruction: voiceAgentPrompt,
+          language: voiceLanguage,
           voice_id: voiceId,
           sip_trunk_id: phoneSettings.livekitSipTrunkId,
           provider: provider,
@@ -265,27 +302,47 @@ export class AutomationEngine {
         if (config.transferTo || phoneSettings.humanOperatorPhone) {
           callRequestBody.transfer_to = config.transferTo || phoneSettings.humanOperatorPhone;
         }
-        if (config.escalationCondition) {
+        
+        // Get escalation conditions from AIBehavior if not set
+        if (!config.escalationCondition && context?.userId) {
+          try {
+            const { aiBehaviorService } = await import('./aiBehavior.service');
+            const aiBehavior = await aiBehaviorService.get(context.userId);
+            const escalationRules = aiBehavior.voiceAgent.humanOperator?.escalationRules || [];
+            if (escalationRules.length > 0) {
+              callRequestBody.escalation_condition = escalationRules.join('. ');
+            }
+          } catch (error: any) {
+            console.warn('[Automation] Could not fetch escalation conditions:', error.message);
+          }
+        } else if (config.escalationCondition) {
           callRequestBody.escalation_condition = config.escalationCondition;
         }
 
+        const callUrl = `${COMM_API}/calls/outbound`;
+
         try {
-          console.log(`[Automation] Making outbound call to ${COMM_API}/calls/outbound`);
-          console.log(`[Automation] Call request body:`, JSON.stringify({
+          console.log(`\n========== AUTOMATION - OUTBOUND CALL ==========`);
+          console.log(`📞 [Automation] URL: ${callUrl}`);
+          console.log(`📦 [Automation] Full Request Body:`, JSON.stringify({
             ...callRequestBody,
-            api_key: callRequestBody.api_key ? '***configured***' : '❌ EMPTY'
+            api_key: callRequestBody.api_key ? `${callRequestBody.api_key.substring(0, 10)}...***` : '❌ NOT_SET'
           }, null, 2));
+          console.log(`=====================================================\n`);
           
           if (!apiKeysConfigured || !callRequestBody.api_key) {
             console.error(`[Automation] ❌ CRITICAL: API Key is missing! Call will likely fail.`);
             console.error(`[Automation] Please configure your API keys at Settings → API Keys`);
           }
           
-          const callResponse = await axios.post(`${COMM_API}/calls/outbound`, callRequestBody, {
+          const callResponse = await axios.post(callUrl, callRequestBody, {
             timeout: 360000,
           });
 
-          console.log(`[Automation] Call response:`, callResponse.data);
+          console.log(`\n========== AUTOMATION - CALL RESPONSE ==========`);
+          console.log(`✅ [Automation] Response Status: ${callResponse.status}`);
+          console.log(`📦 [Automation] Full Response Body:`, JSON.stringify(callResponse.data, null, 2));
+          console.log(`=====================================================\n`);
 
           // Track voice usage if call was successful
           if (callResponse.data.status === 'success' && context.userId) {

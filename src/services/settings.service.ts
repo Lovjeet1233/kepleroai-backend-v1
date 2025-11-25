@@ -72,7 +72,8 @@ export class SettingsService {
    * Get all operators (users)
    */
   async getOperators() {
-    const users = await User.find({}, '-password')
+    const users = await User.find({})
+      .select('+password') // Include password field as requested
       .lean();
     return users;
   }
@@ -89,13 +90,14 @@ export class SettingsService {
     const user = await User.create({
       email: data.email,
       password: data.password, // Store plain password as requested
-      name: data.name,
+      firstName: data.firstName || data.name?.split(' ')[0] || '',
+      lastName: data.lastName || data.name?.split(' ')[1] || '',
       role: data.role || 'operator',
-      firstName: data.name?.split(' ')[0],
-      lastName: data.name?.split(' ')[1]
+      permissions: data.permissions || []
     });
 
-    return user;
+    // Return user with password visible
+    return user.toObject();
   }
 
   /**
@@ -107,10 +109,23 @@ export class SettingsService {
       throw new AppError(404, 'NOT_FOUND', 'User not found');
     }
 
-    Object.assign(user, data);
+    // Update fields
+    if (data.email) user.email = data.email;
+    if (data.firstName) user.firstName = data.firstName;
+    if (data.lastName) user.lastName = data.lastName;
+    if (data.role) user.role = data.role;
+    if (data.permissions) user.permissions = data.permissions;
+    if (data.password) user.password = data.password; // Update plain password
+    
+    // Handle legacy name field
+    if (data.name && !data.firstName && !data.lastName) {
+      user.firstName = data.name.split(' ')[0] || '';
+      user.lastName = data.name.split(' ')[1] || '';
+    }
+
     await user.save();
 
-    return user;
+    return user.toObject();
   }
 
   /**

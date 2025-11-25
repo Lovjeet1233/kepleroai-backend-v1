@@ -70,7 +70,7 @@ export class AuthService {
     }
 
     // Check if user is OAuth user (no password)
-    if (!user.passwordHash && user.provider !== 'local') {
+    if (!user.password && !user.passwordHash && user.provider !== 'local') {
       throw new AppError(401, 'UNAUTHORIZED', `Please sign in with ${user.provider}`);
     }
 

@@ -60,6 +60,45 @@ export class KnowledgeBaseService {
     }
   }
 
+  // Delete knowledge base
+  async delete(kbId: string) {
+    try {
+      const kb = await KnowledgeBase.findById(kbId);
+      if (!kb) {
+        throw new AppError(404, 'NOT_FOUND', 'Knowledge base not found');
+      }
+
+      console.log(`[KB Service] Deleting knowledge base: ${kb.name} (${kb.collectionName})`);
+
+      // Delete collection from Python RAG system
+      try {
+        await pythonRagService.deleteCollection(kb.collectionName);
+        console.log(`[KB Service] ✅ Collection deleted from Python RAG system`);
+      } catch (error: any) {
+        console.error(`[KB Service] ⚠️ Failed to delete collection from Python RAG:`, error.message);
+        // Continue with MongoDB cleanup even if Python deletion fails
+      }
+
+      // Delete all associated data from MongoDB
+      await Promise.all([
+        FAQ.deleteMany({ knowledgeBaseId: kbId }),
+        Website.deleteMany({ knowledgeBaseId: kbId }),
+        File.deleteMany({ knowledgeBaseId: kbId }),
+        KnowledgeBase.findByIdAndDelete(kbId)
+      ]);
+
+      console.log(`[KB Service] ✅ Knowledge base and all associated data deleted`);
+      return { message: 'Knowledge base deleted successfully' };
+    } catch (error: any) {
+      console.error(`[KB Service] ❌ Failed to delete knowledge base:`, error);
+      throw new AppError(
+        error.statusCode || 500,
+        error.code || 'KB_DELETE_ERROR',
+        error.message || 'Failed to delete knowledge base'
+      );
+    }
+  }
+
   // Get space usage
   async getSpaceUsage(kbId: string) {
     const kb = await KnowledgeBase.findById(kbId);

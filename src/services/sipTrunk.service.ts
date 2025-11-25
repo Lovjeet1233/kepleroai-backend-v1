@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { AppError } from '../middleware/error.middleware';
 
-const COMM_API_URL = process.env.COMM_API_URL || 'http://localhost:8000';
+const COMM_API_URL = process.env.COMM_API_URL || 'https://keplerov1-python-production.up.railway.app';
 
 interface SetupSipTrunkRequest {
   label: string;

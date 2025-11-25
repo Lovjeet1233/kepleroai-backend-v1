@@ -42,6 +42,15 @@ export class KnowledgeBaseController {
     }
   };
 
+  deleteKnowledgeBase = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const result = await this.kbService.delete(req.params.kbId);
+      res.json(successResponse(result, 'Knowledge base deleted'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
   getSpaceUsage = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const usage = await this.kbService.getSpaceUsage(req.params.kbId);
