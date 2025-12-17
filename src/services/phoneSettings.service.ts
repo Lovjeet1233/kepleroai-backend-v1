@@ -31,6 +31,7 @@ export class PhoneSettingsService {
     userId: string,
     data: {
       selectedVoice?: string;
+      customVoiceId?: string;
       twilioPhoneNumber?: string;
       livekitSipTrunkId?: string;
       twilioTrunkSid?: string;
@@ -55,6 +56,9 @@ export class PhoneSettingsService {
     // Update fields
     if (data.selectedVoice !== undefined) {
       settings.selectedVoice = data.selectedVoice;
+    }
+    if (data.customVoiceId !== undefined) {
+      settings.customVoiceId = data.customVoiceId;
     }
     if (data.twilioPhoneNumber !== undefined) {
       settings.twilioPhoneNumber = data.twilioPhoneNumber;

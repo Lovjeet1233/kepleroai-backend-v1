@@ -220,10 +220,12 @@ export class AIBehaviorController {
         'adam': 'pNInz6obpgDQGcFmaJgB', // fallback
       };
       
-      const voiceId = VOICE_ID_MAP[phoneSettings.selectedVoice] || VOICE_ID_MAP['adam'];
+      // Use customVoiceId if provided, otherwise use the mapped voice ID
+      const voiceId = phoneSettings.customVoiceId || VOICE_ID_MAP[phoneSettings.selectedVoice] || VOICE_ID_MAP['adam'];
       
       console.log('📢 [AI Behavior Test] Voice Mapping:', {
         selectedVoice: phoneSettings.selectedVoice,
+        customVoiceId: phoneSettings.customVoiceId,
         mappedVoiceId: voiceId
       });
       

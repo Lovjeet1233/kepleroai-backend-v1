@@ -248,7 +248,8 @@ export class AutomationEngine {
         }
 
         // Map selectedVoice name to ElevenLabs voice ID
-        const voiceId = VOICE_ID_MAP[phoneSettings.selectedVoice] || VOICE_ID_MAP['adam'];
+        // Use customVoiceId if provided, otherwise use the mapped voice ID
+        const voiceId = phoneSettings.customVoiceId || VOICE_ID_MAP[phoneSettings.selectedVoice] || VOICE_ID_MAP['adam'];
         
         // Get API keys for LLM
         let provider = 'openai';

@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface IPhoneSettings extends Document {
   userId: mongoose.Types.ObjectId;
   selectedVoice: string;
+  customVoiceId?: string;
   twilioPhoneNumber: string;
   livekitSipTrunkId: string;
   twilioTrunkSid: string;
@@ -38,6 +39,10 @@ const PhoneSettingsSchema = new Schema<IPhoneSettings>({
   selectedVoice: {
     type: String,
     default: 'adam'
+  },
+  customVoiceId: {
+    type: String,
+    default: ''
   },
   twilioPhoneNumber: {
     type: String,
