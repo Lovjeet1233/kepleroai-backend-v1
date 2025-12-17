@@ -200,6 +200,18 @@ export class ConversationController {
       next(error);
     }
   };
+
+  fetchTranscript = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const { callerId } = req.params;
+      
+      const result = await this.conversationService.fetchTranscriptByCallerId(callerId);
+
+      res.json(successResponse(result, 'Transcript fetched successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export const conversationController = new ConversationController();

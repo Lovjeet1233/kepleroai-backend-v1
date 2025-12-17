@@ -9,7 +9,10 @@ router.use(authenticate);
 
 // Knowledge Base
 router.get('/', knowledgeBaseController.getAllKnowledgeBases);
-router.post('/', knowledgeBaseController.createKnowledgeBase);
+router.post('/', upload.fields([
+  { name: 'pdf_files', maxCount: 10 },
+  { name: 'excel_files', maxCount: 10 }
+]), knowledgeBaseController.createKnowledgeBase);
 router.delete('/:kbId', knowledgeBaseController.deleteKnowledgeBase);
 router.get('/:kbId/space-usage', knowledgeBaseController.getSpaceUsage);
 

@@ -293,7 +293,7 @@ export class CampaignService {
     console.log(`[Campaign ${campaignId}] Escalation Condition: ${escalationCondition || '(not set)'}`);
     console.log(`[Campaign ${campaignId}] =====================================`);
 
-    const COMM_API = process.env.COMM_API_URL || 'https://keplerov1-python-production.up.railway.app';
+    const COMM_API = process.env.COMM_API_URL || 'https://keplerov1-python-2.onrender.com';
     const results: any[] = [];
     let successCount = 0;
     let failCount = 0;
@@ -360,6 +360,25 @@ export class CampaignService {
               // Normalize phone number to E.164 format
               const normalizedPhone = normalizePhoneNumber(contact.phone);
               
+              // Get default knowledge bases from settings
+              let collectionNames: string[] = [];
+              try {
+                const settings = await (await import('../models/Settings')).default.findOne({ userId });
+                if (settings) {
+                  // Prefer multiple knowledge bases (new format)
+                  if (settings.defaultKnowledgeBaseNames && settings.defaultKnowledgeBaseNames.length > 0) {
+                    collectionNames = settings.defaultKnowledgeBaseNames;
+                  } 
+                  // Fallback to single knowledge base (legacy format)
+                  else if (settings.defaultKnowledgeBaseName) {
+                    collectionNames = [settings.defaultKnowledgeBaseName];
+                  }
+                }
+                console.log(`[Campaign ${campaignId}] Using ${collectionNames.length} knowledge base(s):`, collectionNames);
+              } catch (error: any) {
+                console.warn(`[Campaign ${campaignId}] Could not fetch knowledge bases:`, error.message);
+              }
+
               // Prepare outbound call request body
               const callRequestBody: any = {
                 phone_number: normalizedPhone,
@@ -369,7 +388,8 @@ export class CampaignService {
                 voice_id: voiceId,
                 sip_trunk_id: phoneSettings.livekitSipTrunkId,
                 provider: provider,
-                api_key: apiKey
+                api_key: apiKey,
+                collection_names: collectionNames // Updated to support multiple collections
               };
 
               // Add optional fields if they exist
@@ -422,6 +442,25 @@ export class CampaignService {
               contactResult.transcript = callResponse.data.transcript || null;
 
               console.log(`[Campaign ${campaignId}] Call to ${contact.phone} completed with status: ${contactResult.call_status}`);
+
+              // Create conversation immediately after successful call
+              if (contactResult.call_status === 'success' && callResponse.data.details?.caller_id) {
+                try {
+                  const { conversationService } = await import('./conversation.service');
+                  const User = (await import('../models/User')).default;
+                  const user = await User.findById(userId);
+                  const conversation = await conversationService.createForOutboundCall({
+                    userId: userId,
+                    organizationId: user?.organizationId?.toString() || userId,
+                    phone: contact.phone,
+                    name: contact.name || 'Unknown',
+                    callerId: callResponse.data.details.caller_id
+                  });
+                  console.log(`[Campaign ${campaignId}] Created conversation ${conversation._id} for ${contact.name}`);
+                } catch (convError: any) {
+                  console.error(`[Campaign ${campaignId}] Failed to create conversation:`, convError.message);
+                }
+              }
 
               // Track voice usage if call was successful
               if (contactResult.call_status === 'success' && callResponse.data.duration) {

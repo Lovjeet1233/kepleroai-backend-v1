@@ -31,15 +31,32 @@ export class KnowledgeBaseService {
   }
 
   // Create knowledge base
-  async create(name: string, userId: string) {
+  async create(name: string, userId: string, dataSources?: {
+    urlLinks?: string[];
+    pdfFiles?: Buffer[];
+    excelFiles?: Buffer[];
+  }) {
     try {
-      // Generate unique collection name
-      const collectionName = `kb_${Date.now()}_${name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+      // Generate collection name from knowledge base name
+      const collectionName = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
       
       console.log(`[KB Service] Creating knowledge base: ${name} with collection: ${collectionName}`);
       
-      // Create collection in Python RAG system first
-      await pythonRagService.createCollection(collectionName);
+      // Always call data_ingestion endpoint - it creates collection and ingests data
+      // Collection will be created even if no data sources are provided
+      console.log(`[KB Service] Calling /rag/data_ingestion to create collection and ingest data`);
+      
+      await pythonRagService.ingestData({
+        collectionName: collectionName,
+        urlLinks: dataSources?.urlLinks || [],
+        pdfFiles: dataSources?.pdfFiles || [],
+        excelFiles: dataSources?.excelFiles || []
+      });
+      
+      console.log(`[KB Service] ✅ Collection created via /rag/data_ingestion`);
+      if (dataSources?.urlLinks?.length || dataSources?.pdfFiles?.length || dataSources?.excelFiles?.length) {
+        console.log(`[KB Service] ✅ Data ingested successfully`);
+      }
       
       // Create knowledge base record in MongoDB
       const kb = await KnowledgeBase.create({ 
@@ -48,7 +65,7 @@ export class KnowledgeBaseService {
         collectionName 
       });
       
-      console.log(`[KB Service] ✅ Knowledge base created successfully`);
+      console.log(`[KB Service] ✅ Knowledge base created successfully in MongoDB`);
       return kb;
     } catch (error: any) {
       console.error(`[KB Service] ❌ Failed to create knowledge base:`, error);

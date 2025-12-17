@@ -107,6 +107,7 @@ export class ConversationService {
 
     console.log(`[Conversation Service] Found conversation for customer: ${(conversation as any).customerId?.name}`);
     console.log(`[Conversation Service] Has transcript: ${!!(conversation as any).transcript}`);
+    console.log(`[Conversation Service] Metadata:`, JSON.stringify((conversation as any).metadata, null, 2));
 
     // Query messages using both _id and string id to handle any format
     const messages = await Message.find({ 
@@ -367,6 +368,142 @@ export class ConversationService {
     await Message.deleteMany({ conversationId });
 
     return { message: 'Conversation deleted successfully' };
+  }
+
+  // Create conversation for outbound call
+  async createForOutboundCall(data: {
+    userId: string;
+    phone: string;
+    name: string;
+    callerId: string;
+    organizationId?: string;
+  }) {
+    try {
+      // Find or create customer
+      let customer = await Customer.findOne({ phone: data.phone });
+      
+      if (!customer) {
+        customer = await Customer.create({
+          name: data.name,
+          phone: data.phone,
+          color: `#${Math.floor(Math.random() * 16777215).toString(16)}`
+        });
+      }
+
+      // Create conversation
+      const conversation = await Conversation.create({
+        organizationId: data.organizationId || data.userId,
+        customerId: customer._id,
+        channel: 'phone',
+        status: 'open',
+        isAiManaging: true,
+        unread: true,
+        metadata: {
+          callerId: data.callerId,
+          callInitiated: new Date()
+        }
+      });
+
+      // Add initial internal note
+      await Message.create({
+        conversationId: conversation._id,
+        type: 'internal_note',
+        text: `Outbound call initiated to ${data.name} (${data.phone})`,
+        sender: 'ai',
+        timestamp: new Date()
+      });
+
+      console.log(`[Conversation Service] Created conversation for outbound call: ${conversation._id}`);
+      console.log(`[Conversation Service] Metadata saved:`, JSON.stringify(conversation.metadata, null, 2));
+      
+      return conversation;
+    } catch (error: any) {
+      console.error('[Conversation Service] Failed to create conversation for outbound call:', error);
+      throw error;
+    }
+  }
+
+  // Fetch and update transcript from MongoDB by caller_id
+  async fetchTranscriptByCallerId(callerId: string) {
+    try {
+      // Import mongoose to access native driver
+      const db = mongoose.connection.db;
+      
+      console.log(`[Conversation Service] Searching for transcript with caller_id: ${callerId}`);
+      
+      // Check what documents exist
+      const allDocs = await db?.collection('transcripts').find({}).limit(5).toArray();
+      console.log(`[Conversation Service] Found ${allDocs?.length || 0} documents in transcripts collection`);
+      if (allDocs && allDocs.length > 0) {
+        console.log(`[Conversation Service] Sample document keys:`, Object.keys(allDocs[0]));
+        console.log(`[Conversation Service] Sample caller_id:`, allDocs[0].caller_id);
+      }
+      
+      // Fetch the call transcript document from MongoDB
+      const callDocument = await db?.collection('transcripts').findOne({ caller_id: callerId });
+      
+      if (!callDocument) {
+        console.log(`[Conversation Service] ❌ No document found with caller_id: ${callerId}`);
+        throw new AppError(404, 'NOT_FOUND', 'Call transcript not found');
+      }
+      
+      console.log(`[Conversation Service] ✅ Found transcript document for caller_id: ${callerId}`);
+
+      // Find conversation by callerId
+      const conversation = await Conversation.findOne({ 'metadata.callerId': callerId });
+      
+      if (!conversation) {
+        throw new AppError(404, 'NOT_FOUND', 'Conversation not found for this call');
+      }
+
+      // Update conversation with transcript
+      conversation.transcript = callDocument.transcript;
+      conversation.metadata = {
+        ...conversation.metadata,
+        duration: callDocument.metadata?.duration_formatted,
+        callCompletedAt: callDocument.timestamp,
+        roomName: callDocument.metadata?.room_name,
+        recording_url: callDocument.metadata?.recording_url || callDocument.recording_url || null
+      };
+      await conversation.save();
+
+      // Delete existing transcript messages to avoid duplicates on refresh
+      await Message.deleteMany({ 
+        conversationId: conversation._id, 
+        'metadata.transcriptItemId': { $exists: true } 
+      });
+
+      // Convert transcript items to messages
+      if (callDocument.transcript && callDocument.transcript.items) {
+        for (const item of callDocument.transcript.items) {
+          if (item.type === 'message') {
+            await Message.create({
+              conversationId: conversation._id,
+              type: 'message',
+              text: item.content.join(' '),
+              sender: item.role === 'user' ? 'customer' : 'ai',
+              timestamp: new Date(),
+              metadata: {
+                transcriptItemId: item.id,
+                interrupted: item.interrupted,
+                confidence: item.transcript_confidence
+              }
+            });
+          }
+        }
+      }
+
+      console.log(`[Conversation Service] Updated conversation ${conversation._id} with transcript`);
+      
+      return {
+        conversation,
+        transcript: callDocument.transcript,
+        metadata: callDocument.metadata
+      };
+    } catch (error: any) {
+      console.error('[Conversation Service] Failed to fetch transcript:', error);
+      throw error;
+    }
   }
 
   // Bulk create conversations (for campaign transcripts)

@@ -9,6 +9,20 @@ export interface IPhoneSettings extends Document {
   terminationUri: string;
   originationUri: string;
   humanOperatorPhone: string;
+  
+  // Generic SIP Trunk fields
+  sipAddress?: string;
+  sipUsername?: string;
+  providerName?: string;
+  transport?: string;
+  
+  // Inbound Trunk fields
+  inboundTrunkId?: string;
+  inboundTrunkName?: string;
+  inboundPhoneNumbers?: string[];
+  inboundDispatchRuleId?: string;
+  inboundDispatchRuleName?: string;
+  
   isConfigured: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -49,6 +63,47 @@ const PhoneSettingsSchema = new Schema<IPhoneSettings>({
     type: String,
     default: ''
   },
+  
+  // Generic SIP Trunk fields
+  sipAddress: {
+    type: String,
+    default: ''
+  },
+  sipUsername: {
+    type: String,
+    default: ''
+  },
+  providerName: {
+    type: String,
+    default: ''
+  },
+  transport: {
+    type: String,
+    default: ''
+  },
+  
+  // Inbound Trunk fields
+  inboundTrunkId: {
+    type: String,
+    default: ''
+  },
+  inboundTrunkName: {
+    type: String,
+    default: ''
+  },
+  inboundPhoneNumbers: {
+    type: [String],
+    default: []
+  },
+  inboundDispatchRuleId: {
+    type: String,
+    default: ''
+  },
+  inboundDispatchRuleName: {
+    type: String,
+    default: ''
+  },
+  
   isConfigured: {
     type: Boolean,
     default: false

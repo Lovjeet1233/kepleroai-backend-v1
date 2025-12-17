@@ -27,17 +27,17 @@ export class PhoneSettingsController {
   update = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const userId = req.user!.id;
-      const { selectedVoice, twilioPhoneNumber, livekitSipTrunkId, humanOperatorPhone } = req.body;
+      
+      console.log('[PhoneSettings Controller] Received update request');
+      console.log('[PhoneSettings Controller] Request body:', JSON.stringify(req.body, null, 2));
 
-      const settings = await phoneSettingsService.update(userId, {
-        selectedVoice,
-        twilioPhoneNumber,
-        livekitSipTrunkId,
-        humanOperatorPhone
-      });
+      // Pass all fields from req.body to the service
+      const settings = await phoneSettingsService.update(userId, req.body);
 
+      console.log('[PhoneSettings Controller] Settings updated successfully');
       res.json(successResponse(settings));
     } catch (error) {
+      console.error('[PhoneSettings Controller] Update failed:', error);
       next(error);
     }
   };

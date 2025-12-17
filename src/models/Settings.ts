@@ -9,8 +9,10 @@ export interface ISettings extends Document {
   widgetPosition?: 'left' | 'right';
   autoReplyEnabled?: boolean;
   autoReplyMessage?: string;
-  defaultKnowledgeBaseId?: mongoose.Types.ObjectId; // Reference to default knowledge base
-  defaultKnowledgeBaseName?: string; // Collection name for RAG
+  defaultKnowledgeBaseId?: mongoose.Types.ObjectId; // Reference to default knowledge base (deprecated - use defaultKnowledgeBaseIds)
+  defaultKnowledgeBaseName?: string; // Collection name for RAG (deprecated - use defaultKnowledgeBaseNames)
+  defaultKnowledgeBaseIds?: mongoose.Types.ObjectId[]; // References to multiple default knowledge bases
+  defaultKnowledgeBaseNames?: string[]; // Collection names for RAG (supports multiple)
   businessHours?: any;
   // Conversation Settings
   autoAssign?: boolean;
@@ -71,6 +73,11 @@ const SettingsSchema = new Schema<ISettings>({
     ref: 'KnowledgeBase'
   },
   defaultKnowledgeBaseName: String,
+  defaultKnowledgeBaseIds: [{
+    type: Schema.Types.ObjectId,
+    ref: 'KnowledgeBase'
+  }],
+  defaultKnowledgeBaseNames: [String],
   businessHours: Schema.Types.Mixed,
   // Conversation Settings
   autoAssign: { type: Boolean, default: true },

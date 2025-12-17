@@ -12,9 +12,13 @@ router.use(authenticate);
 router.get('/', phoneSettingsController.get);
 router.put('/', phoneSettingsController.update);
 
-// SIP trunk setup
+// SIP trunk setup - Outbound
 router.post('/setup-sip-trunk', sipTrunkController.setupSipTrunk);
-router.post('/create-livekit-trunk', sipTrunkController.createLivekitTrunk);
+// router.post('/create-livekit-trunk', sipTrunkController.createLivekitTrunk); // Commented out
+router.post('/create-generic-sip-trunk', sipTrunkController.createGenericSipTrunk);
+
+// SIP trunk setup - Inbound
+router.post('/create-inbound-trunk', sipTrunkController.createInboundTrunk);
 
 export default router;
 

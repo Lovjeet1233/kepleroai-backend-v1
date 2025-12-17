@@ -48,7 +48,7 @@ export class ChatbotController {
       // Chat with RAG system
       const response = await pythonRagService.chat({
         query,
-        collectionName: collectionName || 'default',
+        collectionNames: [collectionName || 'default'], // Updated to array for multiple collections support
         threadId,
         systemPrompt
       });
@@ -100,7 +100,7 @@ export class ChatbotController {
       // Chat with RAG system
       const response = await pythonRagService.chat({
         query,
-        collectionName: collectionName || 'default',
+        collectionNames: [collectionName || 'default'], // Updated to array for multiple collections support
         threadId,
         systemPrompt
       });

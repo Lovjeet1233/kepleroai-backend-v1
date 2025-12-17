@@ -37,6 +37,17 @@ export class PhoneSettingsService {
       terminationUri?: string;
       originationUri?: string;
       humanOperatorPhone?: string;
+      // Generic SIP Trunk fields
+      sipAddress?: string;
+      sipUsername?: string;
+      providerName?: string;
+      transport?: string;
+      // Inbound Trunk fields
+      inboundTrunkId?: string;
+      inboundTrunkName?: string;
+      inboundPhoneNumbers?: string[];
+      inboundDispatchRuleId?: string;
+      inboundDispatchRuleName?: string;
     }
   ) {
     const settings = await this.get(userId);
@@ -64,6 +75,53 @@ export class PhoneSettingsService {
       settings.humanOperatorPhone = data.humanOperatorPhone;
     }
 
+    // Generic SIP Trunk fields
+    if (data.sipAddress !== undefined) {
+      settings.sipAddress = data.sipAddress;
+    }
+    if (data.sipUsername !== undefined) {
+      settings.sipUsername = data.sipUsername;
+    }
+    if (data.providerName !== undefined) {
+      settings.providerName = data.providerName;
+    }
+    if (data.transport !== undefined) {
+      settings.transport = data.transport;
+    }
+
+    // Inbound Trunk fields
+    console.log('[PhoneSettings Service] Updating inbound fields...');
+    console.log('[PhoneSettings Service] Received data:', JSON.stringify(data, null, 2));
+    
+    if (data.inboundTrunkId !== undefined) {
+      console.log('[PhoneSettings Service] Setting inboundTrunkId:', data.inboundTrunkId);
+      settings.inboundTrunkId = data.inboundTrunkId;
+    }
+    if (data.inboundTrunkName !== undefined) {
+      console.log('[PhoneSettings Service] Setting inboundTrunkName:', data.inboundTrunkName);
+      settings.inboundTrunkName = data.inboundTrunkName;
+    }
+    if (data.inboundPhoneNumbers !== undefined) {
+      console.log('[PhoneSettings Service] Setting inboundPhoneNumbers:', data.inboundPhoneNumbers);
+      settings.inboundPhoneNumbers = data.inboundPhoneNumbers;
+    }
+    if (data.inboundDispatchRuleId !== undefined) {
+      console.log('[PhoneSettings Service] Setting inboundDispatchRuleId:', data.inboundDispatchRuleId);
+      settings.inboundDispatchRuleId = data.inboundDispatchRuleId;
+    }
+    if (data.inboundDispatchRuleName !== undefined) {
+      console.log('[PhoneSettings Service] Setting inboundDispatchRuleName:', data.inboundDispatchRuleName);
+      settings.inboundDispatchRuleName = data.inboundDispatchRuleName;
+    }
+
+    console.log('[PhoneSettings Service] Before save:', {
+      inboundTrunkId: settings.inboundTrunkId,
+      inboundTrunkName: settings.inboundTrunkName,
+      inboundPhoneNumbers: settings.inboundPhoneNumbers,
+      inboundDispatchRuleId: settings.inboundDispatchRuleId,
+      inboundDispatchRuleName: settings.inboundDispatchRuleName,
+    });
+
     // Check if all required fields are configured
     settings.isConfigured = !!(
       settings.selectedVoice &&
@@ -72,6 +130,15 @@ export class PhoneSettingsService {
     );
 
     await settings.save();
+    
+    console.log('[PhoneSettings Service] After save:', {
+      inboundTrunkId: settings.inboundTrunkId,
+      inboundTrunkName: settings.inboundTrunkName,
+      inboundPhoneNumbers: settings.inboundPhoneNumbers,
+      inboundDispatchRuleId: settings.inboundDispatchRuleId,
+      inboundDispatchRuleName: settings.inboundDispatchRuleName,
+    });
+    
     return settings;
   }
 

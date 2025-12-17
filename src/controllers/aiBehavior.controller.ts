@@ -230,8 +230,28 @@ export class AIBehaviorController {
       // Normalize phone number
       const normalizedPhone = phoneNumber.startsWith('+') ? phoneNumber : '+' + phoneNumber;
 
+      // Get default knowledge bases from settings
+      let collectionNames: string[] = [];
+      try {
+        const Settings = (await import('../models/Settings')).default;
+        const settings = await Settings.findOne({ userId: req.user!.id });
+        if (settings) {
+          // Prefer multiple knowledge bases (new format)
+          if (settings.defaultKnowledgeBaseNames && settings.defaultKnowledgeBaseNames.length > 0) {
+            collectionNames = settings.defaultKnowledgeBaseNames;
+          } 
+          // Fallback to single knowledge base (legacy format)
+          else if (settings.defaultKnowledgeBaseName) {
+            collectionNames = [settings.defaultKnowledgeBaseName];
+          }
+        }
+        console.log(`[Test Call] Using ${collectionNames.length} knowledge base(s):`, collectionNames);
+      } catch (error: any) {
+        console.warn(`[Test Call] Could not fetch knowledge bases:`, error.message);
+      }
+
       // Prepare call request
-      const COMM_API = process.env.PYTHON_BACKEND_URL || 'https://keplerov1-python-production.up.railway.app';
+      const COMM_API = process.env.COMM_API_URL || 'https://keplerov1-python-2.onrender.com';
       const callRequestBody: any = {
         phone_number: normalizedPhone,
         name: 'Test User',
@@ -240,7 +260,8 @@ export class AIBehaviorController {
         voice_id: voiceId,
         sip_trunk_id: phoneSettings.livekitSipTrunkId,
         provider: apiKeys.llmProvider,
-        api_key: apiKeys.apiKey
+        api_key: apiKeys.apiKey,
+        collection_names: collectionNames // Updated to support multiple collections
       };
 
       // Add transfer_to and escalation_condition from settings
@@ -271,6 +292,25 @@ export class AIBehaviorController {
       console.log('📦 [AI Behavior Test] Full Response Body:', JSON.stringify(callResponse.data, null, 2));
       console.log('=====================================================\n');
 
+      // Create conversation immediately after successful call
+      let conversationId = null;
+      if (callResponse.data.status === 'success' && callResponse.data.details?.caller_id) {
+        try {
+          const { conversationService } = await import('../services/conversation.service');
+          const conversation = await conversationService.createForOutboundCall({
+            userId: req.user!.id,
+            organizationId: req.user!.organizationId.toString(),
+            phone: normalizedPhone,
+            name: 'Test User',
+            callerId: callResponse.data.details.caller_id
+          });
+          conversationId = conversation._id;
+          console.log(`[Test Call] Created conversation: ${conversationId}`);
+        } catch (convError: any) {
+          console.error(`[Test Call] Failed to create conversation:`, convError.message);
+        }
+      }
+
       return res.json({
         success: true,
         data: {
@@ -278,9 +318,10 @@ export class AIBehaviorController {
           message: callResponse.data.message || 'Test call initiated successfully',
           phoneNumber: normalizedPhone,
           details: callResponse.data.details,
-          transcript: callResponse.data.transcript
+          transcript: callResponse.data.transcript,
+          conversationId
         },
-        message: 'Test call initiated successfully'
+        message: 'Test call initiated successfully. Check Conversations to view transcript when call ends.'
       });
     } catch (error: any) {
       console.error('[AI Behavior] Test voice agent error:', error);

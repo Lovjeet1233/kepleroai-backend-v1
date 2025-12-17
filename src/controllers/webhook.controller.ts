@@ -266,7 +266,7 @@ export class WebhookController {
       // Call Python RAG service to generate response
       const ragResponse = await pythonRagService.chat({
         query: userMessage,
-        collectionName: collectionName,
+        collectionNames: [collectionName], // Updated to array for multiple collections support
         topK: 5,
         threadId: conversation._id.toString(),
         systemPrompt: 'You are a helpful AI assistant. Provide accurate and concise responses based on the knowledge base.'
@@ -290,7 +290,7 @@ export class WebhookController {
         timestamp: new Date(),
         metadata: {
           generatedBy: 'rag-service',
-          collectionName: collectionName,
+          collectionNames: [collectionName], // Updated to array for multiple collections support
           retrievedDocs: ragResponse.retrieved_docs || []
         }
       });
@@ -612,7 +612,7 @@ export class WebhookController {
       // Call Python RAG service to generate response
       const ragResponse = await pythonRagService.chat({
         query: userMessage,
-        collectionName: collectionName,
+        collectionNames: [collectionName], // Updated to array for multiple collections support
         topK: 5,
         threadId: conversation._id.toString(),
         systemPrompt: 'You are a helpful AI assistant. Provide accurate and concise responses based on the knowledge base.'
@@ -636,7 +636,7 @@ export class WebhookController {
         timestamp: new Date(),
         metadata: {
           generatedBy: 'rag-service',
-          collectionName: collectionName,
+          collectionNames: [collectionName], // Updated to array for multiple collections support
           retrievedDocs: ragResponse.retrieved_docs || []
         }
       });

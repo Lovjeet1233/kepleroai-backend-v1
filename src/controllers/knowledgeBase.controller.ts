@@ -33,10 +33,31 @@ export class KnowledgeBaseController {
 
   createKnowledgeBase = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-      const { name } = req.body;
+      const { name, url_links } = req.body;
       const userId = req.user!.id;
-      const kb = await this.kbService.create(name, userId);
-      res.status(201).json(successResponse(kb, 'Knowledge base created'));
+      
+      // Get uploaded files
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+      const pdfFiles = files?.pdf_files || [];
+      const excelFiles = files?.excel_files || [];
+
+      // Parse URL links (comma-separated string)
+      const urlLinksArray = url_links ? url_links.split(',').map((url: string) => url.trim()).filter(Boolean) : [];
+
+      // Create knowledge base with data sources
+      // This will call /rag/data_ingestion to create collection and ingest data, then save to DB
+      const kb = await this.kbService.create(name, userId, {
+        urlLinks: urlLinksArray,
+        pdfFiles: pdfFiles.map(f => f.buffer),
+        excelFiles: excelFiles.map(f => f.buffer)
+      });
+      
+      const hasData = urlLinksArray.length > 0 || pdfFiles.length > 0 || excelFiles.length > 0;
+      const message = hasData 
+        ? 'Knowledge base created and data ingestion completed'
+        : 'Knowledge base created successfully';
+      
+      res.status(201).json(successResponse(kb, message));
     } catch (error) {
       next(error);
     }

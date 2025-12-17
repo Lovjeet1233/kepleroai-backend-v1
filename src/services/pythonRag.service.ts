@@ -2,7 +2,8 @@ import axios from 'axios';
 import FormData from 'form-data';
 import { AppError } from '../middleware/error.middleware';
 
-const PYTHON_RAG_BASE_URL = process.env.RAG_API_URL || 'http://localhost:8000';
+// Remove trailing slash from URL if present
+const PYTHON_RAG_BASE_URL = 'https://keplerov1-python-2.onrender.com';
 
 /**
  * Python RAG Service
@@ -68,14 +69,23 @@ export class PythonRagService {
     excelFiles?: Buffer[];
   }): Promise<any> {
     try {
+      const url = `${PYTHON_RAG_BASE_URL}/rag/data_ingestion`;
       console.log(`[Python RAG] Ingesting data into collection: ${params.collectionName}`);
+      console.log(`[Python RAG] API URL: ${url}`);
+      console.log(`[Python RAG] Data sources:`, {
+        urlLinks: params.urlLinks?.length || 0,
+        pdfFiles: params.pdfFiles?.length || 0,
+        excelFiles: params.excelFiles?.length || 0
+      });
       
       const formData = new FormData();
       formData.append('collection_name', params.collectionName);
 
       // Add URL links as comma-separated string
       if (params.urlLinks && params.urlLinks.length > 0) {
-        formData.append('url_links', params.urlLinks.join(','));
+        const urlLinksStr = params.urlLinks.join(',');
+        formData.append('url_links', urlLinksStr);
+        console.log(`[Python RAG] Adding URL links: ${urlLinksStr}`);
       }
 
       // Add PDF files
@@ -83,6 +93,7 @@ export class PythonRagService {
         params.pdfFiles.forEach((fileBuffer, index) => {
           formData.append('pdf_files', fileBuffer, `file_${index}.pdf`);
         });
+        console.log(`[Python RAG] Adding ${params.pdfFiles.length} PDF files`);
       }
 
       // Add Excel files
@@ -90,22 +101,32 @@ export class PythonRagService {
         params.excelFiles.forEach((fileBuffer, index) => {
           formData.append('excel_files', fileBuffer, `file_${index}.xlsx`);
         });
+        console.log(`[Python RAG] Adding ${params.excelFiles.length} Excel files`);
       }
 
+      console.log(`[Python RAG] Sending POST request to: ${url}`);
+      
       const response = await axios.post(
-        `${PYTHON_RAG_BASE_URL}/rag/data_ingestion`,
+        url,
         formData,
         {
           headers: {
             ...formData.getHeaders()
-          }
+          },
+          timeout: 60000 // 60 second timeout
         }
       );
 
-      console.log(`[Python RAG] Data ingestion completed for: ${params.collectionName}`);
+      console.log(`[Python RAG] ✅ Data ingestion completed for: ${params.collectionName}`);
+      console.log(`[Python RAG] Response:`, response.data);
       return response.data;
     } catch (error: any) {
-      console.error('[Python RAG] Failed to ingest data:', error.response?.data || error.message);
+      console.error('[Python RAG] ❌ Failed to ingest data');
+      console.error('[Python RAG] Error status:', error.response?.status);
+      console.error('[Python RAG] Error data:', error.response?.data);
+      console.error('[Python RAG] Error message:', error.message);
+      console.error('[Python RAG] Request URL:', error.config?.url);
+      
       throw new AppError(
         500,
         'RAG_INGESTION_ERROR',
@@ -117,13 +138,16 @@ export class PythonRagService {
   /**
    * Chat with RAG system
    * Uses LangGraph workflow with retrieval and generation
+   * Supports multiple collections for cross-knowledge-base search
    */
   async chat(params: {
     query: string;
-    collectionName: string;
+    collectionNames: string[]; // Updated to support multiple collections
     topK?: number;
     threadId?: string;
     systemPrompt?: string;
+    provider?: string;
+    apiKey?: string;
   }): Promise<{
     query: string;
     answer: string;
@@ -132,14 +156,17 @@ export class PythonRagService {
     thread_id: string;
   }> {
     try {
-      console.log(`[Python RAG] Chat query in collection: ${params.collectionName}`);
+      console.log(`[Python RAG] Chat query in collections:`, params.collectionNames);
+      console.log(`[Python RAG] Collections count: ${params.collectionNames.length}`);
       
       const response = await axios.post(`${PYTHON_RAG_BASE_URL}/rag/chat`, {
         query: params.query,
-        collection_name: params.collectionName,
+        collection_names: params.collectionNames, // Updated to support multiple collections
         top_k: params.topK || 5,
         thread_id: params.threadId,
-        system_prompt: params.systemPrompt
+        system_prompt: params.systemPrompt,
+        provider: params.provider,
+        api_key: params.apiKey
       });
 
       console.log(`[Python RAG] Chat response received`);
