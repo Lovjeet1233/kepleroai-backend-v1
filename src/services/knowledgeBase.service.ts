@@ -37,8 +37,17 @@ export class KnowledgeBaseService {
     excelFiles?: Buffer[];
   }) {
     try {
+      // Validate inputs
+      if (!name || typeof name !== 'string' || name.trim() === '') {
+        throw new AppError(400, 'VALIDATION_ERROR', 'Knowledge base name is required');
+      }
+      
+      if (!userId || typeof userId !== 'string') {
+        throw new AppError(400, 'VALIDATION_ERROR', 'User ID is required');
+      }
+      
       // Generate collection name from knowledge base name
-      const collectionName = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+      const collectionName = name.trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
       
       console.log(`[KB Service] Creating knowledge base: ${name} with collection: ${collectionName}`);
       

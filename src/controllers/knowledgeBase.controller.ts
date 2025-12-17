@@ -36,6 +36,11 @@ export class KnowledgeBaseController {
       const { name, url_links } = req.body;
       const userId = req.user!.id;
       
+      // Validate required fields
+      if (!name || typeof name !== 'string' || name.trim() === '') {
+        throw new AppError(400, 'VALIDATION_ERROR', 'Knowledge base name is required');
+      }
+      
       // Get uploaded files
       const files = req.files as { [fieldname: string]: Express.Multer.File[] };
       const pdfFiles = files?.pdf_files || [];
@@ -46,7 +51,7 @@ export class KnowledgeBaseController {
 
       // Create knowledge base with data sources
       // This will call /rag/data_ingestion to create collection and ingest data, then save to DB
-      const kb = await this.kbService.create(name, userId, {
+      const kb = await this.kbService.create(name.trim(), userId, {
         urlLinks: urlLinksArray,
         pdfFiles: pdfFiles.map(f => f.buffer),
         excelFiles: excelFiles.map(f => f.buffer)
