@@ -39,9 +39,9 @@ passport.use(
           return done(new Error('No email found in Google profile'), null);
         }
 
-        const names = profile.displayName?.split(' ') || ['', ''];
+        const names = profile.displayName?.split(' ') || ['User', ''];
         const firstName = profile.name?.givenName || names[0] || 'User';
-        const lastName = profile.name?.familyName || names.slice(1).join(' ') || '';
+        const lastName = profile.name?.familyName || names.slice(1).join(' ') || 'User';
 
         // Create organization for new user
         const orgName = `${firstName}'s Organization`;
