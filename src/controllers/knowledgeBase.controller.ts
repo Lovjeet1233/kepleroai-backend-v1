@@ -24,7 +24,11 @@ export class KnowledgeBaseController {
   
   getAllKnowledgeBases = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-      const knowledgeBases = await this.kbService.findAll();
+      const userId = req.user?.id;
+      if (!userId) {
+        throw new AppError(401, 'UNAUTHORIZED', 'User ID not found');
+      }
+      const knowledgeBases = await this.kbService.findAll(userId);
       res.json(successResponse(knowledgeBases));
     } catch (error) {
       next(error);

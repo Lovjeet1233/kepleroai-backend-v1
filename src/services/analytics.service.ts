@@ -6,8 +6,8 @@ import { Parser } from 'json2csv';
 
 export class AnalyticsService {
   // Dashboard Metrics
-  async getDashboardMetrics(dateFrom?: string, dateTo?: string) {
-    const cacheKey = `dashboard_metrics:${dateFrom}:${dateTo}`;
+  async getDashboardMetrics(organizationId: string, dateFrom?: string, dateTo?: string) {
+    const cacheKey = `dashboard_metrics:${organizationId}:${dateFrom}:${dateTo}`;
     
     // Try to get from cache (only if Redis is available)
     if (isRedisAvailable()) {
@@ -21,7 +21,7 @@ export class AnalyticsService {
       }
     }
 
-    const dateQuery: any = {};
+    const dateQuery: any = { organizationId };
     if (dateFrom || dateTo) {
       dateQuery.createdAt = {};
       if (dateFrom) dateQuery.createdAt.$gte = new Date(dateFrom);
@@ -136,11 +136,12 @@ export class AnalyticsService {
 
   // Conversation Trends
   async getConversationTrends(
+    organizationId: string,
     groupBy: 'hour' | 'day' | 'week' | 'month' = 'day',
     dateFrom?: string,
     dateTo?: string
   ) {
-    const dateQuery: any = { createdAt: {} };
+    const dateQuery: any = { organizationId, createdAt: {} };
     if (dateFrom) dateQuery.createdAt.$gte = new Date(dateFrom);
     if (dateTo) dateQuery.createdAt.$lte = new Date(dateTo);
 
@@ -249,11 +250,12 @@ export class AnalyticsService {
 
   // Performance Metrics
   async getPerformanceMetrics(
+    organizationId: string,
     dateFrom?: string,
     dateTo?: string,
     operatorId?: string
   ) {
-    const dateQuery: any = {};
+    const dateQuery: any = { organizationId };
     if (dateFrom || dateTo) {
       dateQuery.createdAt = {};
       if (dateFrom) dateQuery.createdAt.$gte = new Date(dateFrom);
@@ -415,8 +417,8 @@ export class AnalyticsService {
   }
 
   // Export Data
-  async exportData(format: 'csv' | 'json', filters: any = {}) {
-    const query: any = {};
+  async exportData(organizationId: string, format: 'csv' | 'json', filters: any = {}) {
+    const query: any = { organizationId };
     
     if (filters.dateFrom || filters.dateTo) {
       query.createdAt = {};

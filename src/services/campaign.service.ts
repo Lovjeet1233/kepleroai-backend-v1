@@ -61,8 +61,12 @@ const normalizePhoneNumber = (phone: string): string => {
 };
 
 export class CampaignService {
-  async findAll(filters: any = {}, page = 1, limit = 20) {
-    const query: any = {};
+  async findAll(organizationId: string, filters: any = {}, page = 1, limit = 20) {
+    // First get all lists for this organization
+    const lists = await ContactList.find({ organizationId }).select('_id');
+    const listIds = lists.map(l => l._id);
+    
+    const query: any = { listId: { $in: listIds } };
 
     if (filters.status) {
       query.status = filters.status;

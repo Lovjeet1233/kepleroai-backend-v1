@@ -10,8 +10,8 @@ import Papa from 'papaparse';
 export class ContactService {
   // ===== Contacts =====
 
-  async findAll(filters: any = {}, page = 1, limit = 20) {
-    const query: any = {};
+  async findAll(organizationId: string, filters: any = {}, page = 1, limit = 20) {
+    const query: any = { organizationId };
 
     // Filter by list
     if (filters.listId && filters.listId !== 'list_all') {
@@ -367,8 +367,8 @@ export class ContactService {
 
   // ===== Lists =====
 
-  async findAllLists() {
-    const lists = await ContactList.find().sort({ createdAt: -1 }).lean();
+  async findAllLists(organizationId: string) {
+    const lists = await ContactList.find({ organizationId }).sort({ createdAt: -1 }).lean();
 
     const listsWithCount = await Promise.all(
       lists.map(async (list: any) => {
@@ -383,13 +383,13 @@ export class ContactService {
     return listsWithCount;
   }
 
-  async createList(listData: { name: string; kanbanEnabled?: boolean }) {
-    const existing = await ContactList.findOne({ name: listData.name });
+  async createList(organizationId: string, listData: { name: string; kanbanEnabled?: boolean }) {
+    const existing = await ContactList.findOne({ name: listData.name, organizationId });
     if (existing) {
       throw new AppError(409, 'DUPLICATE', 'List with this name already exists');
     }
 
-    const list = await ContactList.create(listData);
+    const list = await ContactList.create({ ...listData, organizationId });
     return list;
   }
 
@@ -494,8 +494,8 @@ export class ContactService {
 
   // ===== Custom Properties =====
 
-  async findAllCustomProperties() {
-    return await CustomProperty.find().sort({ createdAt: -1 });
+  async findAllCustomProperties(organizationId: string) {
+    return await CustomProperty.find({ organizationId }).sort({ createdAt: -1 });
   }
 
   async createCustomProperty(propertyData: { name: string; dataType: 'string' | 'number' }) {

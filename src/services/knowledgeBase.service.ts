@@ -9,8 +9,8 @@ import Papa from 'papaparse';
 
 export class KnowledgeBaseService {
   // List all knowledge bases
-  async findAll() {
-    const knowledgeBases = await KnowledgeBase.find().sort({ createdAt: -1 }).lean();
+  async findAll(userId: string) {
+    const knowledgeBases = await KnowledgeBase.find({ userId }).sort({ createdAt: -1 }).lean();
 
     const kbWithCounts = await Promise.all(
       knowledgeBases.map(async (kb: any) => {

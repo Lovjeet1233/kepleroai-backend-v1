@@ -15,8 +15,13 @@ export class ContactController {
 
   getAll = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
+      const organizationId = req.user?.organizationId;
+      if (!organizationId) {
+        throw new AppError(401, 'UNAUTHORIZED', 'Organization ID not found');
+      }
       const { page = 1, limit = 20, ...filters } = req.query;
       const result = await this.contactService.findAll(
+        organizationId.toString(),
         filters,
         Number(page),
         Number(limit)
@@ -136,7 +141,11 @@ export class ContactController {
 
   getAllLists = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-      const lists = await this.contactService.findAllLists();
+      const organizationId = req.user?.organizationId;
+      if (!organizationId) {
+        throw new AppError(401, 'UNAUTHORIZED', 'Organization ID not found');
+      }
+      const lists = await this.contactService.findAllLists(organizationId.toString());
       res.json(successResponse(lists));
     } catch (error) {
       next(error);
@@ -145,7 +154,11 @@ export class ContactController {
 
   createList = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-      const list = await this.contactService.createList(req.body);
+      const organizationId = req.user?.organizationId;
+      if (!organizationId) {
+        throw new AppError(401, 'UNAUTHORIZED', 'Organization ID not found');
+      }
+      const list = await this.contactService.createList(organizationId.toString(), req.body);
       res.status(201).json(successResponse(list, 'List created'));
     } catch (error) {
       next(error);
@@ -205,7 +218,11 @@ export class ContactController {
 
   getAllCustomProperties = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-      const properties = await this.contactService.findAllCustomProperties();
+      const organizationId = req.user?.organizationId;
+      if (!organizationId) {
+        throw new AppError(401, 'UNAUTHORIZED', 'Organization ID not found');
+      }
+      const properties = await this.contactService.findAllCustomProperties(organizationId.toString());
       res.json(successResponse(properties));
     } catch (error) {
       next(error);

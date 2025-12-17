@@ -3,6 +3,7 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { AnalyticsService } from '../services/analytics.service';
 import { TopicService } from '../services/topic.service';
 import { successResponse } from '../utils/response.util';
+import { AppError } from '../middleware/error.middleware';
 
 export class AnalyticsController {
   private analyticsService: AnalyticsService;
@@ -16,8 +17,13 @@ export class AnalyticsController {
   // Dashboard Metrics
   getDashboard = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
+      const organizationId = req.user?.organizationId;
+      if (!organizationId) {
+        throw new AppError(401, 'UNAUTHORIZED', 'Organization ID not found');
+      }
       const { dateFrom, dateTo } = req.query;
       const metrics = await this.analyticsService.getDashboardMetrics(
+        organizationId.toString(),
         dateFrom as string,
         dateTo as string
       );
@@ -30,8 +36,13 @@ export class AnalyticsController {
   // Conversation Trends
   getTrends = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
+      const organizationId = req.user?.organizationId;
+      if (!organizationId) {
+        throw new AppError(401, 'UNAUTHORIZED', 'Organization ID not found');
+      }
       const { groupBy = 'day', dateFrom, dateTo } = req.query;
       const trends = await this.analyticsService.getConversationTrends(
+        organizationId.toString(),
         groupBy as 'hour' | 'day' | 'week' | 'month',
         dateFrom as string,
         dateTo as string
@@ -45,8 +56,13 @@ export class AnalyticsController {
   // Performance Metrics
   getPerformance = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
+      const organizationId = req.user?.organizationId;
+      if (!organizationId) {
+        throw new AppError(401, 'UNAUTHORIZED', 'Organization ID not found');
+      }
       const { dateFrom, dateTo, operatorId } = req.query;
       const performance = await this.analyticsService.getPerformanceMetrics(
+        organizationId.toString(),
         dateFrom as string,
         dateTo as string,
         operatorId as string
@@ -60,8 +76,13 @@ export class AnalyticsController {
   // Export Data
   exportData = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
+      const organizationId = req.user?.organizationId;
+      if (!organizationId) {
+        throw new AppError(401, 'UNAUTHORIZED', 'Organization ID not found');
+      }
       const { format = 'json', ...filters } = req.query;
       const result = await this.analyticsService.exportData(
+        organizationId.toString(),
         format as 'csv' | 'json',
         filters
       );

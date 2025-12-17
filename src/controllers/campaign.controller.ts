@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { CampaignService } from '../services/campaign.service';
 import { successResponse, paginatedResponse } from '../utils/response.util';
+import { AppError } from '../middleware/error.middleware';
 
 export class CampaignController {
   private campaignService: CampaignService;
@@ -12,8 +13,13 @@ export class CampaignController {
 
   getAll = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
+      const organizationId = req.user?.organizationId;
+      if (!organizationId) {
+        throw new AppError(401, 'UNAUTHORIZED', 'Organization ID not found');
+      }
       const { page = 1, limit = 20, ...filters } = req.query;
       const result = await this.campaignService.findAll(
+        organizationId.toString(),
         filters,
         Number(page),
         Number(limit)
