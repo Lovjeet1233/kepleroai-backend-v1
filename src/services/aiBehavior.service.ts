@@ -1,5 +1,6 @@
 import AIBehavior from '../models/AIBehavior';
 import { AppError } from '../middleware/error.middleware';
+import { inboundAgentConfigService } from './inboundAgentConfig.service';
 
 /**
  * AI Behavior Service
@@ -143,6 +144,17 @@ export class AIBehaviorService {
       await aiBehavior.save();
       
       console.log('[AI Behavior] Updated voice agent system prompt');
+      
+      // Sync inbound agent config after voice agent update
+      try {
+        console.log('[AI Behavior] Syncing inbound agent config...');
+        await inboundAgentConfigService.syncConfig(userId);
+        console.log('[AI Behavior] Inbound agent config synced successfully');
+      } catch (error) {
+        console.error('[AI Behavior] Failed to sync inbound agent config:', error);
+        // Don't throw error, just log it
+      }
+      
       return aiBehavior;
     } catch (error: any) {
       console.error('[AI Behavior] Failed to update voice agent prompt:', error);
@@ -160,6 +172,17 @@ export class AIBehaviorService {
       await aiBehavior.save();
       
       console.log('[AI Behavior] Updated voice agent language');
+      
+      // Sync inbound agent config after language update
+      try {
+        console.log('[AI Behavior] Syncing inbound agent config...');
+        await inboundAgentConfigService.syncConfig(userId);
+        console.log('[AI Behavior] Inbound agent config synced successfully');
+      } catch (error) {
+        console.error('[AI Behavior] Failed to sync inbound agent config:', error);
+        // Don't throw error, just log it
+      }
+      
       return aiBehavior;
     } catch (error: any) {
       console.error('[AI Behavior] Failed to update voice agent language:', error);

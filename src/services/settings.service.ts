@@ -1,6 +1,7 @@
 import Settings from '../models/Settings';
 import User from '../models/User';
 import { AppError } from '../middleware/error.middleware';
+import { inboundAgentConfigService } from './inboundAgentConfig.service';
 
 export class SettingsService {
   /**
@@ -63,6 +64,18 @@ export class SettingsService {
       // Update existing
       Object.assign(settings, data);
       await settings.save();
+    }
+    
+    // Sync inbound agent config if knowledge base settings were updated
+    if (data.defaultKnowledgeBaseNames !== undefined || data.language !== undefined) {
+      try {
+        console.log('[Settings Service] Syncing inbound agent config...');
+        await inboundAgentConfigService.syncConfig(userId);
+        console.log('[Settings Service] Inbound agent config synced successfully');
+      } catch (error) {
+        console.error('[Settings Service] Failed to sync inbound agent config:', error);
+        // Don't throw error, just log it
+      }
     }
     
     return settings;

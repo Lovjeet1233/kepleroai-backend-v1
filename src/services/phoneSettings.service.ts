@@ -1,6 +1,7 @@
 import PhoneSettings, { IPhoneSettings } from '../models/PhoneSettings';
 import { AppError } from '../middleware/error.middleware';
 import mongoose from 'mongoose';
+import { inboundAgentConfigService } from './inboundAgentConfig.service';
 
 export class PhoneSettingsService {
   /**
@@ -106,8 +107,10 @@ export class PhoneSettingsService {
       settings.inboundTrunkName = data.inboundTrunkName;
     }
     if (data.inboundPhoneNumbers !== undefined) {
-      console.log('[PhoneSettings Service] Setting inboundPhoneNumbers:', data.inboundPhoneNumbers);
+      console.log('[PhoneSettings Service] Current inboundPhoneNumbers:', settings.inboundPhoneNumbers);
+      console.log('[PhoneSettings Service] New inboundPhoneNumbers:', data.inboundPhoneNumbers);
       settings.inboundPhoneNumbers = data.inboundPhoneNumbers;
+      console.log('[PhoneSettings Service] Updated inboundPhoneNumbers:', settings.inboundPhoneNumbers);
     }
     if (data.inboundDispatchRuleId !== undefined) {
       console.log('[PhoneSettings Service] Setting inboundDispatchRuleId:', data.inboundDispatchRuleId);
@@ -142,6 +145,24 @@ export class PhoneSettingsService {
       inboundDispatchRuleId: settings.inboundDispatchRuleId,
       inboundDispatchRuleName: settings.inboundDispatchRuleName,
     });
+    
+    // Sync inbound agent config after phone settings update
+    if (data.inboundPhoneNumbers !== undefined) {
+      try {
+        console.log('[PhoneSettings Service] Triggering inbound agent config sync...');
+        console.log('[PhoneSettings Service] UserId for sync:', userId);
+        console.log('[PhoneSettings Service] Phone numbers for sync:', settings.inboundPhoneNumbers);
+        
+        const syncedConfigs = await inboundAgentConfigService.syncConfig(userId);
+        
+        console.log('[PhoneSettings Service] Inbound agent config synced successfully');
+        console.log('[PhoneSettings Service] Synced configs count:', syncedConfigs.length);
+      } catch (error: any) {
+        console.error('[PhoneSettings Service] Failed to sync inbound agent config:', error);
+        console.error('[PhoneSettings Service] Error details:', error.message, error.stack);
+        // Don't throw error, just log it - phone settings update should succeed even if sync fails
+      }
+    }
     
     return settings;
   }

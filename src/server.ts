@@ -33,6 +33,7 @@ import googleIntegrationRoutes from './routes/googleIntegration.routes';
 import socialIntegrationRoutes from './routes/socialIntegration.routes';
 import dialog360WebhookRoutes from './routes/webhook.routes';
 import profileRoutes from './routes/profile.routes';
+import inboundAgentConfigRoutes from './routes/inboundAgentConfig.routes';
 
 const app = express();
 const httpServer = createServer(app);
@@ -127,6 +128,7 @@ app.use('/api/v1/integrations', googleIntegrationRoutes);
 app.use('/api/v1/social-integrations', socialIntegrationRoutes);
 app.use('/api/v1/webhooks/360dialog', dialog360WebhookRoutes);
 app.use('/api/v1/profile', profileRoutes);
+app.use('/api/v1/inbound-agent-config', inboundAgentConfigRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
