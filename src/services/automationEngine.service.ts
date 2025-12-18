@@ -81,7 +81,7 @@ export class AutomationEngine {
   }
 
   private registerHandlers() {
-    // ============ KEPLERO AI TRIGGERS ============
+    // ============ AISTEIN-IT TRIGGERS ============
     
     // Contact Created Trigger
     this.triggers.set('keplero_contact_created', {
@@ -143,7 +143,7 @@ export class AutomationEngine {
       }
     });
 
-    // ============ KEPLERO AI ACTIONS ============
+    // ============ AISTEIN-IT ACTIONS ============
 
     // API Call Action
     this.actions.set('keplero_api_call', {
